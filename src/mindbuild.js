@@ -3,40 +3,7 @@ import nectar from 'nectar';
 import child_process from 'child_process';
 import os from 'os';
 import {upload} from './lib/s3';
-
-/**
- * Read and parse json file.
- * {
- *      content: {...} or undefined
- *      error: error string or undefined
- * }
- *
- * @param {string} jsonFile: File name.
- * @returns {object}:
- */
-const getJsonFile = (jsonFile) => {
-	let ret = { content: undefined, error: undefined };
-	let rawData;
-	if (typeof jsonFile === 'string' && jsonFile.length > 0) {
-		try {
-			rawData = FS.readFileSync(jsonFile, 'utf8');
-		} catch (error) {
-			ret.error = `Error: Fail to reading package.json. Exception: ${error}`;
-		}
-		if (rawData) {
-			try {
-				ret.content = JSON.parse(rawData);
-			} catch (error) {
-				ret.error = `Error: Can't parse json format. Exception: ${error}`;
-			}
-		}
-	} else {
-		ret.error = 'Error: Invalid file name.';
-	}
-
-
-	return ret;
-}
+import {getJsonFile} from './lib/common/file';
 
 const getPackageJsonField = field => {
 	if (!getPackageJsonField.cache) {
@@ -74,7 +41,7 @@ function bundleGame (gameName) {
 	const spawn = child_process.spawnSync;
 	// Exec the global jspm command instead of calling a library function, so we make sure of being using the correct jspm version.
 	const command = (os.platform() === 'win32') ? 'jspm.cmd' : 'jspm';
-	const res = spawn(command, ['bundle', `PixiArenas/${gameName}/${gameName} - mind-sdk/**/*`, `${gameName}.js`]);
+	const res = spawn(command, ['bundle', `${BUNDLE_DIRECTORY}/${gameName}/${gameName} - mind-sdk/**/*`, `${gameName}.js`]);
 	if (!res.error && res.status === 0) {
 		writeManifest(gameName);
 	}
@@ -104,34 +71,6 @@ const uploadBundle = (bundleName, version) => {
 				`{pilot/arenas/${bundleName}-${version}/${file}`,
 				S3_BUCKET);
 	});
-}
-
-const contentType = fileName => {
-	let contentType;
-	if (typeof fileName !== 'string') {
-		fileName = '';
-	}
-	const contentTypes = [
-		['', 'application/octet-stream'],
-		['.html', 'text/html'],
-		['.css', 'text/css'],
-		['.json', 'application/json'],
-		['.js', 'application/x-javascript'],
-		['.png', 'image/png'],
-		['.jpg', 'image/jpg'],
-		['.svg', 'image/svg+xml']
-	];
-
-	let type = contentTypes.pop();
-	const name = fileName.toLowerCase()
-	do {
-		if (name.endsWith(type[0])) {
-			contentType = type[1];
-		}
-		typé = contentTypes.pop();
-	} while (contentType !== undefined);
-
-	return contentType;
 }
 
 const BUNDLE_DIRECTORY = 'PixiArenas';

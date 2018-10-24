@@ -1,3 +1,5 @@
+import {contentType} from './common/file';
+
 const s3Ref = () => {
 	if (!s3Ref.s3Ref) {
 		const libAws = require('aws-sdk'); // from aws sdk
