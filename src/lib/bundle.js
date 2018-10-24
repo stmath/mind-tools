@@ -27,6 +27,7 @@ const writeManifest = (gameName, dir, version) => {
         const dump = `{
             "module": "${gameName}",
             "arenaKey": "PixiArenas/${gameName}/${gameName}",
+            "version" : "${version}",
             "sdkBundleFile": "/pilot/sdk/mind-sdk-${sdkVersion}.js",
             "gameBundleFile": ${createPath('/pilot/arenas', gameName, version, gameName + '.js')},
             "assetsBaseUrl": "/pilot",
