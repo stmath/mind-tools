@@ -62,7 +62,9 @@ const getPackageJsonFields = (ns = '', fields = undefined) => {
 		ns = '';
 	}
 	if (Array.isArray(fields)) {
-		ret = fields.map(f => getPackageJsonField(`${ns}.${f}`));
+        ret = fields
+            .map(f => typeof f === 'string' && f.length > 0)
+            .map(f => getPackageJsonField([ns, f].join('.')));
 	}
 	return ret;
 }
