@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "aws-sdk": "^2.341.0",
+    "gulp-git": "^2.8.0",
     "nectar": "^5.0.4"
   }
 }
