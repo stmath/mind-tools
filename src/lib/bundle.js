@@ -72,7 +72,7 @@ const getPackageJsonField = field => {
 	if (typeof field === 'string' && field.length > 0) {
 		retObj = field
 				.split('.')
-				.reduce(p => retObj[p] || {}, retObj);
+				.reduce(p => retObj && retObj[p], retObj);
 	}
 	return retObj;
 };
