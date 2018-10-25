@@ -1,4 +1,5 @@
 import {contentType} from './common/file';
+import FS from 'fs';
 
 const s3Ref = () => {
 	if (!s3Ref.s3Ref) {
@@ -33,14 +34,14 @@ export const createBucket = bucketName => {
             }
         });
     });
-}
+};
 
 export const upload = (filepath, key, bucket) => {
     return new Promise ((resolve, reject) => {
         const validParams = [filepath, key, bucket]
                             .find(p => typeof p !== 'string' || p.length === 0) === undefined;
         if (validParams) {
-            const buffer = fs.readFileSync(filepath);
+            const buffer = FS.readFileSync(filepath);
             if (buffer) {
                 const s3Ref = s3Ref();
                 s3Ref.putObject({
