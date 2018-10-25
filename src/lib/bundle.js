@@ -11,7 +11,7 @@ export const bundleAssets = () => {
         nectar(assets, output);
         ret = true;
     } else {
-        logFn("No assets found.")
+        logFn('No assets found.')
     }
     return ret;
 };
@@ -49,20 +49,25 @@ export const setLogHandler = handlerFn => {
 
 const writeManifest = (name, arenakey, version) => {
     const sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
-    const dump = `      {
-        "module": "${name}",
-        "arenaKey": "${arenakey}",
-        "version" : "${version}",
-        "sdkBundleFile": "/pilot/sdk/mind-sdk-${sdkVersion}.js",
-        "gameBundleFile": "${createPath('/pilot/arenas', name, version, name + '.js')}",
-        "assetsBaseUrl": "/pilot",
-        "systemJsConfig": {
-            "map": {
-                "mind-sdk": "mind:mind-sdk@${sdkVersion}"
+    const manifest = {
+        'module': name,
+        'arenaKey': arenakey,
+        'version' : version,
+        'sdkBundleFile': `/pilot/sdk/mind-sdk-${sdkVersion}.js`,
+        'gameBundleFile': createPath('/pilot/arenas', name, version, name + '.js'),
+        'assetsBaseUrl': `/pilot`,
+        'systemJsConfig': {
+            'map': {
+                'mind-sdk': `mind:mind-sdk@${sdkVersion}`
             }
         }
-    }`;
-    FS.writeFileSync(`${name}.manifest.js`, dump);
+    };
+    try {
+        FS.writeFileSync(`${name}.manifest.js`, JSON.stringify(manifest, null, 2));
+    } catch (e) {
+        logFn(`Error writing manifest: ${e}`);
+    }
+
 };
 
 const getPackageJsonField = field => {
