@@ -32,23 +32,25 @@ if (errorCode === 0) {
 			log(`Current tagged version: ${version}`);
 		}
 		version = String(parseInt(version) + 1);
+		log(`Tagging repo with version: ${version}`);
 		return [addTag(version), version];
 	})
 	.then((success, version) => {
-		let res;
+		let result;
 		if (success) {
-			log(`Repo tagged with version: ${version}`);
 			log('Bundling assets');
 			bundleAssets();
 			log('Bundling game');
-			bundleGame(bundleName, version);
-			log('Uploading bundle');
-			res = uploadBundle(bundleName, version);
+			success = bundleGame(bundleName, version) &&
+				uploadBundle(bundleName, version);
+			if (!success) {
+				Promise.reject(new Error('Error on bundle game.'));
+			}
+			return true;
 		} else {
-			errorCode = 1;
 			log(`Error on setting git tag: ${version}`);
 		}
-		return res;
+		return result;
 	})
 	.then(res => {
 		log(res);

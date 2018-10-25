@@ -5,15 +5,19 @@ import os from 'os';
 import {getJsonFile, createPath} from './common/file';
 
 export const bundleAssets = () => {
-	const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
+    const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
+    ret = false;
     if (assets && output && assets.length > 0 && output.length > 0) {
         nectar(assets, output);
+        ret = true;
     }
+    return ret;
 };
 
 export const bundleGame = (name, version) => {
+    let ret = false;
     if (typeof name === 'string' && name.length > 0) {
-        const workingDirectory = getPackageJsonField('jspm.dependencies.lib');
+        const workingDirectory = getPackageJsonField('jspm.directories.lib');
         if (workingDirectory) {
             const spawn = child_process.spawnSync;
             // Exec the global jspm command instead of calling a library function, so we make sure of being using the correct jspm version.
@@ -24,6 +28,7 @@ export const bundleGame = (name, version) => {
             if (!res.error && res.status === 0) {
                 logFn(`Writing manifest ${modulePath}/${name}.manifest.js`);
                 writeManifest(name, modulePath, version);
+                ret = true;
             } else {
                 logFn(`Error: Jspm finish with status ${res.status} and error: ${res.error}.`);
             }
@@ -31,6 +36,7 @@ export const bundleGame = (name, version) => {
             logFn('Can\t find jspm.dependencies.lib in package.json');
         }
     }
+    return ret;
 };
 
 export const setLogHandler = handlerFn => {
@@ -40,7 +46,7 @@ export const setLogHandler = handlerFn => {
 };
 
 const writeManifest = (name, modulePath, version) => {
-    const sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
+    const sdkVersion = getPackageJsonField('jspm.directories.mind-sdk');
     const dump = `{
         "module": "${name}",
         "arenaKey": "${modulePath}",
