@@ -49,12 +49,12 @@ export const setLogHandler = handlerFn => {
 
 const writeManifest = (name, arenakey, version) => {
     const sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
-    const dump = `{
+    const dump = `      {
         "module": "${name}",
         "arenaKey": "${arenakey}",
         "version" : "${version}",
         "sdkBundleFile": "/pilot/sdk/mind-sdk-${sdkVersion}.js",
-        "gameBundleFile": ${createPath('/pilot/arenas', name, version, name + '.js')},
+        "gameBundleFile": "${createPath('/pilot/arenas', name, version, name + '.js')}",
         "assetsBaseUrl": "/pilot",
         "systemJsConfig": {
             "map": {

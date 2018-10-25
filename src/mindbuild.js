@@ -35,7 +35,8 @@ if (errorCode === 0) {
 		log(`Tagging repo with version: ${version}`);
 		return [addTag(version), version];
 	})
-	.then((success, version) => {
+	.then(res => {
+		let [success, version] = res;
 		let promise;
 		if (success) {
 			log('Bundling assets');
