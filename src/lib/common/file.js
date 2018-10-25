@@ -28,7 +28,7 @@ export const contentType = fileName => {
 		if (name.endsWith(type[0])) {
 			contentType = type[1];
 		}
-		typé = contentTypes.pop();
+		type = contentTypes.pop();
 	} while (contentType !== undefined);
 
 	return contentType;
