@@ -1,7 +1,7 @@
 import {contentType} from './common/file';
 import FS from 'fs';
 
-const s3Ref = () => {
+const s3 = () => {
 	if (!s3Ref.s3Ref) {
 		const libAws = require('aws-sdk');
 		const credentials = new libAws.SharedIniFileCredentials({profile: 'mri-gc-account'});
@@ -13,7 +13,7 @@ const s3Ref = () => {
 
 export const createBucket = bucketName => {
     return new Promise ((resolve, reject) => {
-        const s3Ref = s3Ref();
+        const s3Ref = s3();
         s3Ref.listBuckets((err, data) => {
             if (err) {
                 reject(new Error(err));
@@ -43,7 +43,7 @@ export const upload = (filepath, key, bucket) => {
         if (validParams) {
             const buffer = FS.readFileSync(filepath);
             if (buffer) {
-                const s3Ref = s3Ref();
+                const s3Ref = s3();
                 s3Ref.putObject({
                     ACL: 'public-read',
                     Bucket: bucket,
