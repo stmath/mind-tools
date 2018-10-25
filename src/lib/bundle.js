@@ -11,31 +11,33 @@ export const bundleAssets = () => {
     }
 }
 
-export function bundleGame (name, arenaKey, path, version) {
-    const validParams = [name, arenaKey, path].find(p => typeof p !== 'string' || p.length === 0) === undefined;
-    if (validParams) {
+export const bundleGame = (name, version) => {
+    if (typeof name === 'string' && name.length > 0) {
         const spawn = child_process.spawnSync;
         // Exec the global jspm command instead of calling a library function, so we make sure of being using the correct jspm version.
         const command = (os.platform() === 'win32') ? 'jspm.cmd' : 'jspm';
-        const res = spawn(command, ['bundle', `${path} - mind-sdk/**/*`, `${name}.js`]); // path : ${BUNDLE_DIRECTORY}/${gameName}/${gameName}
+        const modulePath = `${PARAMS.workingDirectory}/${name}/${name}`;
+        const res = spawn(command, ['bundle', `${modulePath} - mind-sdk/**/*`, `${name}.js`]);
         if (!res.error && res.status === 0) {
-            writeManifest(name, arenaKey, path, version);
+            writeManifest(name, modulePath, version);
         }
     }
 };
 
-const writeManifest = (gameName, arenaKey, path, version) => {
-    if (path.endsWith('.js')) {
-        path = path.substr(0, path.length - 3);
+export const setWorkingDirectory = (dir) => {
+    if (typeof dir === 'string') {
+        PARAMS.workingDirectory = dir;
     }
-    path = path.concat('.manifest.js');
+}
+
+const writeManifest = (name, modulePath, version) => {
     const sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
     const dump = `{
-        "module": "${gameName}",
-        "arenaKey": "${arenaKey}",
+        "module": "${name}",
+        "arenaKey": "${modulePath}",
         "version" : "${version}",
         "sdkBundleFile": "/pilot/sdk/mind-sdk-${sdkVersion}.js",
-        "gameBundleFile": ${createPath('/pilot/arenas', gameName, version, gameName + '.js')},
+        "gameBundleFile": ${createPath('/pilot/arenas', name, version, name + '.js')},
         "assetsBaseUrl": "/pilot",
         "systemJsConfig": {
             "map": {
@@ -44,7 +46,7 @@ const writeManifest = (gameName, arenaKey, path, version) => {
         }
     }`;
 
-    FS.writeFileSync(path, dump); // path: ${BUNDLE_DIRECTORY}/${gameName}/${gameName}.manifest.json
+    FS.writeFileSync(modulePath.concat('.manifest.js'), dump);
 }
 
 const getPackageJsonField = field => {
@@ -73,3 +75,7 @@ const getPackageJsonFields = (ns = '', fields = undefined) => {
 	}
 	return ret;
 }
+
+const PARAMS = {
+    workingDirectory: ''
+};
