@@ -24,7 +24,7 @@ export const bundleGame = (name, version) => {
     }
 };
 
-export const setWorkingDirectory = (dir) => {
+export const setWorkingDirectory = dir => {
     if (typeof dir === 'string') {
         PARAMS.workingDirectory = dir;
     }
@@ -45,7 +45,6 @@ const writeManifest = (name, modulePath, version) => {
             }
         }
     }`;
-
     FS.writeFileSync(modulePath.concat('.manifest.js'), dump);
 }
 
