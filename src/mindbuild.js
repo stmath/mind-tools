@@ -78,7 +78,6 @@ const uploadBundle = (bundleName, version) => {
 	});
 }
 
-const BUNDLE_DIRECTORY = 'PixiArenas';
 const S3_BUCKET = 'mri-game-conversion';
 
 
