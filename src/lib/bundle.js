@@ -10,6 +10,8 @@ export const bundleAssets = () => {
     if (assets && output && assets.length > 0 && output.length > 0) {
         nectar(assets, output);
         ret = true;
+    } else {
+        logFn("No assets found.")
     }
     return ret;
 };
@@ -45,11 +47,11 @@ export const setLogHandler = handlerFn => {
     }
 };
 
-const writeManifest = (name, modulePath, version) => {
+const writeManifest = (name, arenakey, version) => {
     const sdkVersion = getPackageJsonField('jspm.directories.mind-sdk');
     const dump = `{
         "module": "${name}",
-        "arenaKey": "${modulePath}",
+        "arenaKey": "${arenakey}",
         "version" : "${version}",
         "sdkBundleFile": "/pilot/sdk/mind-sdk-${sdkVersion}.js",
         "gameBundleFile": ${createPath('/pilot/arenas', name, version, name + '.js')},
@@ -60,7 +62,7 @@ const writeManifest = (name, modulePath, version) => {
             }
         }
     }`;
-    FS.writeFileSync(modulePath.concat('.manifest.js'), dump);
+    FS.writeFileSync(`${name}.manifest.js`, dump);
 };
 
 const getPackageJsonField = field => {

@@ -66,12 +66,12 @@ if (errorCode === 0) {
 
 
 const uploadBundle = (bundleName, version) => {
-	return upload(`${BUNDLE_DIRECTORY}/${bundleName}/${bundleName}`,
+	return upload(`${bundleName}.js`,
 		`{pilot/arenas/${bundleName}/${version}/${bundleName}.js`,
 		S3_BUCKET)
 	.then(success => {
 		if (success) {
-			return upload(`${BUNDLE_DIRECTORY}/${bundleName}/${bundleName}.manifest.js`,
+			return upload(`${bundleName}.manifest.js`,
 				`{pilot/arenas/${bundleName}/manifest/${bundleName}.manifest.js`,
 				S3_BUCKET);
 		}
