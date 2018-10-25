@@ -6,7 +6,7 @@ import {getJsonFile, createPath} from './common/file';
 
 export const bundleAssets = () => {
     const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
-    ret = false;
+    let ret = false;
     if (assets && output && assets.length > 0 && output.length > 0) {
         nectar(assets, output);
         ret = true;
@@ -33,7 +33,7 @@ export const bundleGame = (name, version) => {
                 logFn(`Error: Jspm finish with status ${res.status} and error: ${res.error}.`);
             }
         } else {
-            logFn('Can\t find jspm.dependencies.lib in package.json');
+            logFn('Can\t find jspm.directories.lib in package.json');
         }
     }
     return ret;
@@ -67,13 +67,14 @@ const getPackageJsonField = field => {
 	if (!getPackageJsonField.cache) {
 		getPackageJsonField.cache = getJsonFile('package.json');
 	}
-
-	let retObj = getPackageJsonField.cache.content;
+    let retObj = getPackageJsonField.cache.content;
 	if (typeof field === 'string' && field.length > 0) {
-		retObj = field
-				.split('.')
-				.reduce(p => retObj && retObj[p], retObj);
-	}
+		field
+            .split('.')
+            .forEach(p => {
+                retObj = retObj && retObj[p];
+            });
+    }
 	return retObj;
 };
 
@@ -84,7 +85,7 @@ const getPackageJsonFields = (ns = '', fields = undefined) => {
 	}
 	if (Array.isArray(fields)) {
         ret = fields
-            .map(f => typeof f === 'string' && f.length > 0)
+            .filter(f => typeof f === 'string' && f.length > 0)
             .map(f => getPackageJsonField([ns, f].join('.')));
 	}
 	return ret;
