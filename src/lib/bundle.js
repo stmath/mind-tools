@@ -19,7 +19,7 @@ export const bundleGame = (name, version) => {
             // Exec the global jspm command instead of calling a library function, so we make sure of being using the correct jspm version.
             const command = (os.platform() === 'win32') ? 'jspm.cmd' : 'jspm';
             const modulePath = createPath(workingDirectory, name, name);
-            logFn(`Executeing jspm bundle ${modulePath} - mind-sdk/**/* ${name}.js.`);
+            logFn(`Executing: jspm bundle ${modulePath} - mind-sdk/**/* ${name}.js.`);
             const res = spawn(command, ['bundle', `${modulePath} - mind-sdk/**/*`, `${name}.js`]);
             if (!res.error && res.status === 0) {
                 logFn(`Writing manifest ${modulePath}/${name}.manifest.js`);

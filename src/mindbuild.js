@@ -27,6 +27,7 @@ if (errorCode === 0) {
 	.then(version => {
 		if (!version) {
 			version = '1';
+			log.push(`No git tags finded, started with version: ${version}`);
 		} else {
 			log.push(`Current tagged version: ${version}`);
 		}
@@ -75,7 +76,4 @@ const uploadBundle = (bundleName, version) => {
 const BUNDLE_DIRECTORY = 'PixiArenas';
 const S3_BUCKET = 'mri-game-conversion';
 
-if (error) {
-	console.log(error);
-}
 process.exit(errorCode);
