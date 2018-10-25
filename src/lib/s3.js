@@ -2,7 +2,7 @@ import {contentType} from './common/file';
 
 const s3Ref = () => {
 	if (!s3Ref.s3Ref) {
-		const libAws = require('aws-sdk'); // from aws sdk
+		const libAws = require('aws-sdk');
 		const credentials = new libAws.SharedIniFileCredentials({profile: 'mri-gc-account'});
 		libAws.config.credentials = credentials;
 		s3Ref.s3Ref = new libAws.S3();
@@ -63,6 +63,4 @@ export const upload = (filepath, key, bucket) => {
             reject(new Error('Invalid Params'));
         }
     });
-
 };
-

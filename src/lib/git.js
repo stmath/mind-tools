@@ -16,7 +16,7 @@ export const getLastTag = (dir = undefined) => {
     return getTags(dir).then(tags => tags.latest);
 }
 
-export const addTag = (tagname) => {
+export const addTag = (tagname, dir = undefined) => {
     return new Promise((resolve, reject) => {
         if ((typeof tagname === 'string' && tagname.length > 0) || typeof tagname === 'number') {
             git(dir).addtag(String(tagname), (err, tags) => {

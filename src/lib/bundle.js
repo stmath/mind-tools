@@ -9,26 +9,35 @@ export const bundleAssets = () => {
     if (assets && output && assets.length > 0 && output.length > 0) {
         nectar(assets, output);
     }
-}
+};
 
 export const bundleGame = (name, version) => {
     if (typeof name === 'string' && name.length > 0) {
-        const spawn = child_process.spawnSync;
-        // Exec the global jspm command instead of calling a library function, so we make sure of being using the correct jspm version.
-        const command = (os.platform() === 'win32') ? 'jspm.cmd' : 'jspm';
-        const modulePath = createPath(PARAMS.workingDirectory, name, name);
-        const res = spawn(command, ['bundle', `${modulePath} - mind-sdk/**/*`, `${name}.js`]);
-        if (!res.error && res.status === 0) {
-            writeManifest(name, modulePath, version);
+        const workingDirectory = getPackageJsonField('jspm.dependencies.lib');
+        if (workingDirectory) {
+            const spawn = child_process.spawnSync;
+            // Exec the global jspm command instead of calling a library function, so we make sure of being using the correct jspm version.
+            const command = (os.platform() === 'win32') ? 'jspm.cmd' : 'jspm';
+            const modulePath = createPath(workingDirectory, name, name);
+            logFn(`Executeing jspm bundle ${modulePath} - mind-sdk/**/* ${name}.js.`);
+            const res = spawn(command, ['bundle', `${modulePath} - mind-sdk/**/*`, `${name}.js`]);
+            if (!res.error && res.status === 0) {
+                logFn(`Writing manifest ${modulePath}/${name}.manifest.js`);
+                writeManifest(name, modulePath, version);
+            } else {
+                logFn(`Error: Jspm finish with status ${res.status} and error: ${res.error}.`);
+            }
+        } else {
+            logFn('Can\t find jspm.dependencies.lib in package.json');
         }
     }
 };
 
-export const setWorkingDirectory = dir => {
-    if (typeof dir === 'string') {
-        PARAMS.workingDirectory = dir;
+export const setLogHandler = handlerFn => {
+    if (typeof handlerFn === 'function') {
+        logFn = handlerFn;
     }
-}
+};
 
 const writeManifest = (name, modulePath, version) => {
     const sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
@@ -46,7 +55,7 @@ const writeManifest = (name, modulePath, version) => {
         }
     }`;
     FS.writeFileSync(modulePath.concat('.manifest.js'), dump);
-}
+};
 
 const getPackageJsonField = field => {
 	if (!getPackageJsonField.cache) {
@@ -60,7 +69,7 @@ const getPackageJsonField = field => {
 				.reduce(p => retObj[p] || {}, retObj);
 	}
 	return retObj;
-}
+};
 
 const getPackageJsonFields = (ns = '', fields = undefined) => {
 	let ret = [];
@@ -73,8 +82,6 @@ const getPackageJsonFields = (ns = '', fields = undefined) => {
             .map(f => getPackageJsonField([ns, f].join('.')));
 	}
 	return ret;
-}
-
-const PARAMS = {
-    workingDirectory: ''
 };
+
+let logFn = (_) => {};
