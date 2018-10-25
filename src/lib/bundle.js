@@ -48,7 +48,7 @@ export const setLogHandler = handlerFn => {
 };
 
 const writeManifest = (name, arenakey, version) => {
-    const sdkVersion = getPackageJsonField('jspm.directories.mind-sdk');
+    const sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
     const dump = `{
         "module": "${name}",
         "arenaKey": "${arenakey}",
