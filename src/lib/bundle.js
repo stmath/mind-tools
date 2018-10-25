@@ -16,7 +16,7 @@ export const bundleGame = (name, version) => {
         const spawn = child_process.spawnSync;
         // Exec the global jspm command instead of calling a library function, so we make sure of being using the correct jspm version.
         const command = (os.platform() === 'win32') ? 'jspm.cmd' : 'jspm';
-        const modulePath = `${PARAMS.workingDirectory}/${name}/${name}`;
+        const modulePath = createPath(PARAMS.workingDirectory, name, name);
         const res = spawn(command, ['bundle', `${modulePath} - mind-sdk/**/*`, `${name}.js`]);
         if (!res.error && res.status === 0) {
             writeManifest(name, modulePath, version);
