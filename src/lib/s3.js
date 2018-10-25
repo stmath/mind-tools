@@ -2,13 +2,13 @@ import {contentType} from './common/file';
 import FS from 'fs';
 
 const s3 = () => {
-	if (!s3Ref.s3Ref) {
+	if (!s3.s3Ref) {
 		const libAws = require('aws-sdk');
 		const credentials = new libAws.SharedIniFileCredentials({profile: 'mri-gc-account'});
 		libAws.config.credentials = credentials;
-		s3Ref.s3Ref = new libAws.S3();
+		s3.s3Ref = new libAws.S3();
 	}
-	return s3Ref.s3Ref;
+	return s3.s3Ref;
 };
 
 export const createBucket = bucketName => {
