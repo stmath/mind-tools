@@ -68,12 +68,12 @@ if (errorCode === 0) {
 
 const uploadBundle = (bundleName, version) => {
 	return upload(`${bundleName}.js`,
-		`{pilot/arenas/${bundleName}/${version}/${bundleName}.js`,
+		`pilot/arenas/${bundleName}/${version}/${bundleName}.js`,
 		S3_BUCKET)
 	.then(success => {
 		if (success) {
 			return upload(`${bundleName}.manifest.js`,
-				`{pilot/arenas/${bundleName}/manifest/${bundleName}.manifest.js`,
+				`pilot/arenas/${bundleName}/manifest/${bundleName}.manifest.js`,
 				S3_BUCKET);
 		}
 	});
