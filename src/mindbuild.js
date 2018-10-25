@@ -36,24 +36,27 @@ if (errorCode === 0) {
 		return [addTag(version), version];
 	})
 	.then((success, version) => {
-		let result;
+		let promise;
 		if (success) {
 			log('Bundling assets');
 			bundleAssets();
 			log('Bundling game');
-			success = bundleGame(bundleName, version) &&
-				uploadBundle(bundleName, version);
+			success = bundleGame(bundleName, version);
 			if (!success) {
-				Promise.reject(new Error('Error on bundle game.'));
+				promise = Promise.reject(new Error('Error on bundle game.'));
+			} else {
+				promise = uploadBundle(bundleName, version);
 			}
-			return true;
+			return promise;
 		} else {
 			log(`Error on setting git tag: ${version}`);
 		}
 		return result;
 	})
 	.then(res => {
-		log(res);
+		if (res) {
+			log("Finish upload.");
+		}
 	})
 	.catch(err => {
 		log(err);
@@ -63,17 +66,16 @@ if (errorCode === 0) {
 
 
 const uploadBundle = (bundleName, version) => {
-	let promise = Promise.resolve(true);
-	[`${bundleName}.js`, `${bundleName}.manifest.js`].forEach(file => {
-		promise = promise.then(sucess => { // upload in sequence.
-			if (sucess) {
-				return upload(`${BUNDLE_DIRECTORY}/${bundleName}/${file}`,
-							`{pilot/arenas/${bundleName}/${version}/${file}`,
-							S3_BUCKET);
-			}
-		})
+	return upload(`${BUNDLE_DIRECTORY}/${bundleName}/${bundleName}`,
+		`{pilot/arenas/${bundleName}/${version}/${bundleName}.js`,
+		S3_BUCKET)
+	.then(success => {
+		if (success) {
+			return upload(`${BUNDLE_DIRECTORY}/${bundleName}/${bundleName}.manifest.js`,
+				`{pilot/arenas/${bundleName}/manifest/${bundleName}.manifest.js`,
+				S3_BUCKET);
+		}
 	});
-	return promise;
 }
 
 const BUNDLE_DIRECTORY = 'PixiArenas';
