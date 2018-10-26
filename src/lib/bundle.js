@@ -60,7 +60,7 @@ export const uploadBundle = (bundleName, version) => {
                                 getPackageJsonField('mind.aws.s3bucket') || DEFAULTS.s3bucket];
 
         const bundleKey = createPath(s3folder, bundleName, version, `${bundleName}.js`);
-        const manifestKey = createPath(s3folder, bundleName, 'manifest', `${bundleName}.manifest.js`);
+        const manifestKey = createPath(s3folder, bundleName, version, `${bundleName}.manifest.js`);
 
         logFn(`Uploading bundlet to S3: bucket: ${s3bucket}, key: ${bundleKey}`);
         promise = upload(`${bundleName}.js`, bundleKey, s3bucket)
