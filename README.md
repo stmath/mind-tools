@@ -26,7 +26,6 @@ Make sure to have the appropiate credentials for your AWS account, and a configu
 
 ## For using the tool
 
-1. If it was not done before, register an entry for mind repository in jspm configuration:
   ```shell
     $ git clone https://rmiller@bitbucket.mindresearch.org/scm/stm/mind-tools.git
 	$ npm install
