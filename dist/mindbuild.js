@@ -31,8 +31,8 @@ if (errorCode === 0) {
 	(0, _git.getLastTag)().then(function (res) {
 		version = res;
 		if (!version) {
-			version = '1';
-			log('No git tags finded, started with version: ' + version);
+			version = '0';
+			log('No git tags finded, started with version 1');
 		} else {
 			log('Current tagged version: ' + version);
 		}
