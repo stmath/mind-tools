@@ -13,7 +13,8 @@ export const getTags = (dir = undefined) => {
 }
 
 export const getLastTag = (dir = undefined) => {
-    return getTags(dir).then(tags => tags.all.sort().pop());
+    return getTags(dir)
+        .then(tags => tags.all.sort((a,b) => (parseInt(a) < parseInt(b)) ? -1 : 1).pop());
 }
 
 export const addTag = (tagname, dir = undefined) => {
