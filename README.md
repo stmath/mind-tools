@@ -7,6 +7,21 @@ This package should be run in a mind-game root directory in other to perform the
 	- Upload the bundle and manifest to the global repo: bucket/folder/game_name/version/.
 	- If nothing fails, tag the git branch with the new version.
 
+# Requirements.
+Make sure to have the appropiate credentials for your AWS account, and a configuration entry for that account. E.g:
+
+```shell
+	$ cat .aws/credentials
+	[mri-gc-account]
+	aws_access_key_id=<YOUR KEY ID>
+	aws_secret_access_key=<YOUR SECRET KEY>
+
+	$ cat .aws/config
+	[mri-gc-account]
+	region=<REGION>
+	output=json
+```
+
 # Installation
 
 ## For using the tool
