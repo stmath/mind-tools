@@ -18,6 +18,7 @@ export const bundleAssets = () => {
 };
 
 export const bundleGame = (name, version) => {
+    name = name || getPackageJsonField('mind.name');
     let ret = false;
     if (typeof name === 'string' && name.length > 0) {
         const workingDirectory = getPackageJsonField('jspm.directories.lib');
@@ -39,6 +40,8 @@ export const bundleGame = (name, version) => {
         } else {
             logFn('Can\t find jspm.directories.lib in package.json');
         }
+    } else {
+        logFn('No bundle name (mind.name) found in package.json');
     }
     return ret;
 };
@@ -50,18 +53,27 @@ export const setLogHandler = handlerFn => {
 };
 
 export const uploadBundle = (bundleName, version) => {
-    let [s3folder, s3bucket] = [getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder,
+    bundleName = bundleName || getPackageJsonField('mind.name');
+    let promise;
+    if (typeof bundleName === 'string' && bundleName.length > 0) {
+        let [s3folder, s3bucket] = [getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder,
                                 getPackageJsonField('mind.aws.s3bucket') || DEFAULTS.s3bucket];
-    const bundleKey = createPath(s3folder, bundleName, version, `${bundleName}.js`);
-    const manifestKey = createPath(s3folder, bundleName, 'manifest', `${bundleName}.manifest.js`);
-    logFn(`Uploading bundlet to S3: bucket: ${s3bucket}, key ${bundleKey}`);
-    return upload(`${bundleName}.js`, bundleKey, s3bucket)
+
+        const bundleKey = createPath(s3folder, bundleName, version, `${bundleName}.js`);
+        const manifestKey = createPath(s3folder, bundleName, 'manifest', `${bundleName}.manifest.js`);
+
+        logFn(`Uploading bundlet to S3: bucket: ${s3bucket}, key: ${bundleKey}`);
+        promise = upload(`${bundleName}.js`, bundleKey, s3bucket)
             .then(success => {
-                logFn(`Uploading manifest to S3: bucket: ${s3bucket}, key ${manifestKey}`);
+                logFn(`Uploading manifest to S3: bucket: ${s3bucket}, key: ${manifestKey}`);
                 if (success) {
                     return upload(`${bundleName}.manifest.js`, manifestKey, s3bucket);
                 }
             });
+    } else {
+        promise = Promise.reject(new Error('Invalid bundle name'));
+    }
+    return promise;
 }
 
 const writeManifest = (name, arenakey, version) => {

@@ -8,10 +8,7 @@ const log = console.log;
 const [,, ...args] = process.argv;
 const index = args.indexOf('--name');
 
-if (index < 0) {
-	log('--name parameter required');
-	errorCode = 65;
-} else {
+if (index >= 0) {
 	bundleName = args[index + 1];
 	if (typeof bundleName !== 'string' || bundleName.length === 0) {
 		log('Invalid argument for --name');
@@ -54,12 +51,11 @@ if (errorCode === 0) {
 		return result;
 	})
 	.then(res => {
-		if (res) {
-			log("Upload finish.");
-		}
+		log(res ? 'Upload finish.' : 'Unknow error.');
 	})
 	.catch(err => {
-		log(err);
-		process.exit(errorCode);
+		log(err.message);
 	})
+} else {
+	process.exit(errorCode);
 }
