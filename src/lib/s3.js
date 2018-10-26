@@ -38,9 +38,13 @@ export const createBucket = bucketName => {
 
 export const upload = (filepath, key, bucket) => {
     return new Promise ((resolve, reject) => {
-        const validParams = [filepath, key, bucket]
+        let validParams = [filepath, key, bucket]
                             .find(p => typeof p !== 'string' || p.length === 0) === undefined;
+        validParams = validParams && (key.length > 1 || key[0] !== '/');
         if (validParams) {
+            if (key[0] === '/') {
+                key = key.substr(1);
+            }
             const buffer = FS.readFileSync(filepath);
             if (buffer) {
                 const s3Ref = s3();
