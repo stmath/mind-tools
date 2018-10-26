@@ -72,7 +72,7 @@ const writeManifest = (name, arenakey, version) => {
         'arenaKey': arenakey,
         'version' : version,
         'sdkBundleFile': `/pilot/sdk/mind-sdk-${sdkVersion}.js`,
-        'gameBundleFile': createPath(folder, name, version, name + '.js'),
+        'gameBundleFile': createPath('/', folder, name, version, name + '.js'),
         'assetsBaseUrl': `/pilot`,
         'systemJsConfig': {
             'map': {

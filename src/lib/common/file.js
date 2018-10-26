@@ -71,7 +71,7 @@ export const getJsonFile = (jsonFile) => {
 export const createPath = (...args) => {
     const prefix = (typeof args[0] === 'string' && args[0].startsWith('/')) ? '/' : '';
     return prefix + args
-        .filter(a => ['string', 'number'].includes(typeof a))
+        .filter(a => ['string', 'number'].includes(typeof a) && a !== '/')
         .map(a => String(a))
         .map(a => a.split('/').filter(e => e.length > 0).join('/')) // Remove extra /
         .join('/');
