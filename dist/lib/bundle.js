@@ -29,6 +29,11 @@ var _s2 = require('./s3');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+/**
+ * Bundle assets defined in mind.bundle-assets.assets = [] & mind.bundle-assets.output = ''
+ *
+ * @returns
+ */
 var bundleAssets = exports.bundleAssets = function bundleAssets() {
     var _getPackageJsonFields = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']),
         _getPackageJsonFields2 = _slicedToArray(_getPackageJsonFields, 2),
@@ -45,6 +50,13 @@ var bundleAssets = exports.bundleAssets = function bundleAssets() {
     return ret;
 };
 
+/**
+ * Bundle game in a promise which ends with true is succed.
+ *
+ * @param {string} name: Name of Game.
+ * @param {string/number} version: Game version
+ * @returns {boolean}: True if succeeds
+ */
 var bundleGame = exports.bundleGame = function bundleGame(name, version) {
     name = name || getPackageJsonField('mind.name');
     var ret = false;
@@ -74,12 +86,25 @@ var bundleGame = exports.bundleGame = function bundleGame(name, version) {
     return ret;
 };
 
+/**
+ * Set log function. E.g: console.log
+ *
+ * @param {object<function>} handlerFn: Function.
+ * @returns
+ */
 var setLogHandler = exports.setLogHandler = function setLogHandler(handlerFn) {
     if (typeof handlerFn === 'function') {
         logFn = handlerFn;
     }
 };
 
+/**
+ * Upload the given bundle.
+ *
+ * @param {string} name: Name of bundle file.
+ * @param {string/number} version: Game version
+ * @returns {object<Promise>}: Ends with true if succeeds.
+ */
 var uploadBundle = exports.uploadBundle = function uploadBundle(bundleName, version) {
     bundleName = bundleName || getPackageJsonField('mind.name');
     var promise = void 0;

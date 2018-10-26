@@ -11,6 +11,12 @@ const s3 = () => {
 	return s3.s3Ref;
 };
 
+/**
+ * Creates a bucket in S3.
+ *
+ * @param {string} bucketName: name of bucket.
+ * @returns
+ */
 export const createBucket = bucketName => {
     return new Promise ((resolve, reject) => {
         const s3Ref = s3();
@@ -36,6 +42,15 @@ export const createBucket = bucketName => {
     });
 };
 
+
+/**
+ * Uploads a file to AWS S3.
+ *
+ * @param {string} bucketName: Path to file.
+ * @param {string} key: File key in aws s3 service.
+ * @param {string} bucket: name of bucket.
+ * @returns
+ */
 export const upload = (filepath, key, bucket) => {
     return new Promise ((resolve, reject) => {
         let validParams = [filepath, key, bucket]

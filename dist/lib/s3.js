@@ -23,6 +23,12 @@ var s3 = function s3() {
     return s3.s3Ref;
 };
 
+/**
+ * Creates a bucket in S3.
+ *
+ * @param {string} bucketName: name of bucket.
+ * @returns
+ */
 var createBucket = exports.createBucket = function createBucket(bucketName) {
     return new Promise(function (resolve, reject) {
         var s3Ref = s3();
@@ -50,6 +56,14 @@ var createBucket = exports.createBucket = function createBucket(bucketName) {
     });
 };
 
+/**
+ * Uploads a file to AWS S3.
+ *
+ * @param {string} bucketName: Path to file.
+ * @param {string} key: File key in aws s3 service.
+ * @param {string} bucket: name of bucket.
+ * @returns
+ */
 var upload = exports.upload = function upload(filepath, key, bucket) {
     return new Promise(function (resolve, reject) {
         var validParams = [filepath, key, bucket].find(function (p) {

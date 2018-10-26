@@ -71,6 +71,15 @@ var getJsonFile = exports.getJsonFile = function getJsonFile(jsonFile) {
 	return ret;
 };
 
+/**
+ * Creates a path:
+ *  Usage: createPath('/home', '/user', 'dir/', 'dir2', 'file.txt') -> /home/user/dir/dir2/file.txt
+ * 		   createPath('home', 'user', 'dir/', 'dir2', 'file.txt') -> home/user/dir/dir2/file.txt
+ *         createPath('/', 'home', 'user', 'dir/', 'dir2', 'file.txt') -> /home/user/dir/dir2/file.txt
+ *
+ * @param {*} args
+ * @returns
+ */
 var createPath = exports.createPath = function createPath() {
 	for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
 		args[_key] = arguments[_key];

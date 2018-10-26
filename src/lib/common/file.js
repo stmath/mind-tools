@@ -68,6 +68,16 @@ export const getJsonFile = (jsonFile) => {
 	return ret;
 }
 
+
+/**
+ * Creates a path:
+ *  Usage: createPath('/home', '/user', 'dir/', 'dir2', 'file.txt') -> /home/user/dir/dir2/file.txt
+ * 		   createPath('home', 'user', 'dir/', 'dir2', 'file.txt') -> home/user/dir/dir2/file.txt
+ *         createPath('/', 'home', 'user', 'dir/', 'dir2', 'file.txt') -> /home/user/dir/dir2/file.txt
+ *
+ * @param {*} args
+ * @returns
+ */
 export const createPath = (...args) => {
     const prefix = (typeof args[0] === 'string' && args[0].startsWith('/')) ? '/' : '';
     return prefix + args

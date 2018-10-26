@@ -11,6 +11,12 @@ var _simpleGit2 = _interopRequireDefault(_simpleGit);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+/**
+ * Get all git tags
+ *
+ * @param {*} [dir=undefined]: Working directory. Default current.
+ * @returns
+ */
 var getTags = exports.getTags = function getTags() {
     var dir = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : undefined;
 
@@ -25,6 +31,12 @@ var getTags = exports.getTags = function getTags() {
     });
 };
 
+/**
+ * Get last tag
+ *
+ * @param {*} [dir=undefined]: Working directory. Default current.
+ * @returns
+ */
 var getLastTag = exports.getLastTag = function getLastTag() {
     var dir = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : undefined;
 
@@ -35,6 +47,13 @@ var getLastTag = exports.getLastTag = function getLastTag() {
     });
 };
 
+/**
+ * Tag git branch.
+ *
+ * @param {string} [tagname]: Tag name.
+ * @param {*} [dir=undefined]: Working directory. Default current.
+ * @returns
+ */
 var addTag = exports.addTag = function addTag(tagname) {
     var dir = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : undefined;
 

@@ -5,6 +5,11 @@ import os from 'os';
 import {getJsonFile, createPath} from './common/file';
 import {upload} from './s3';
 
+/**
+ * Bundle assets defined in mind.bundle-assets.assets = [] & mind.bundle-assets.output = ''
+ *
+ * @returns
+ */
 export const bundleAssets = () => {
     const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
     let ret = false;
@@ -17,6 +22,14 @@ export const bundleAssets = () => {
     return ret;
 };
 
+
+/**
+ * Bundle game in a promise which ends with true is succed.
+ *
+ * @param {string} name: Name of Game.
+ * @param {string/number} version: Game version
+ * @returns {boolean}: True if succeeds
+ */
 export const bundleGame = (name, version) => {
     name = name || getPackageJsonField('mind.name');
     let ret = false;
@@ -46,12 +59,25 @@ export const bundleGame = (name, version) => {
     return ret;
 };
 
+/**
+ * Set log function. E.g: console.log
+ *
+ * @param {object<function>} handlerFn: Function.
+ * @returns
+ */
 export const setLogHandler = handlerFn => {
     if (typeof handlerFn === 'function') {
         logFn = handlerFn;
     }
 };
 
+/**
+ * Upload the given bundle.
+ *
+ * @param {string} name: Name of bundle file.
+ * @param {string/number} version: Game version
+ * @returns {object<Promise>}: Ends with true if succeeds.
+ */
 export const uploadBundle = (bundleName, version) => {
     bundleName = bundleName || getPackageJsonField('mind.name');
     let promise;
