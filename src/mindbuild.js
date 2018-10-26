@@ -19,8 +19,10 @@ if (index >= 0) {
 setLogHandler(log);
 
 if (errorCode === 0) {
+	let version;
 	getLastTag()
-	.then(version => {
+	.then(res => {
+		version = res;
 		if (!version) {
 			version = '1';
 			log(`No git tags finded, started with version: ${version}`);
@@ -28,30 +30,21 @@ if (errorCode === 0) {
 			log(`Current tagged version: ${version}`);
 		}
 		version = String(parseInt(version) + 1);
-		log(`Tagging repo with version: ${version}`);
-		return [addTag(version), version];
-	})
-	.then(res => {
-		let [success, version] = res;
+		log('Bundling assets');
+		bundleAssets();
+		log('Bundling game');
+		let success = bundleGame(bundleName, version);
 		let promise;
-		if (success) {
-			log('Bundling assets');
-			bundleAssets();
-			log('Bundling game');
-			success = bundleGame(bundleName, version);
-			if (!success) {
-				promise = Promise.reject(new Error('Error on bundle game.'));
-			} else {
-				promise = uploadBundle(bundleName, version);
-			}
-			return promise;
+		if (!success) {
+			promise = Promise.reject(new Error('Error while bundling game.'));
 		} else {
-			log(`Error on setting git tag: ${version}`);
+			promise = uploadBundle(bundleName, version);
 		}
-		return result;
+		return promise;
 	})
-	.then(res => {
-		log(res ? 'Upload finish.' : 'Unknow error.');
+	.then(_ => {
+		log(`Tagging git branch with version: ${version}`);
+		return addTag(version);
 	})
 	.catch(err => {
 		log(err.message);
