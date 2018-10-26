@@ -48,6 +48,7 @@ if (errorCode === 0) {
 	})
 	.catch(err => {
 		log(err.message);
+		process.exit(1);
 	})
 } else {
 	process.exit(errorCode);

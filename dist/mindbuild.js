@@ -53,6 +53,7 @@ if (errorCode === 0) {
 		return (0, _git.addTag)(version);
 	}).catch(function (err) {
 		log(err.message);
+		process.exit(1);
 	});
 } else {
 	process.exit(errorCode);
