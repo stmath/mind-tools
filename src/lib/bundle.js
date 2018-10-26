@@ -3,6 +3,7 @@ import nectar from 'nectar';
 import child_process from 'child_process';
 import os from 'os';
 import {getJsonFile, createPath} from './common/file';
+import {upload} from './s3';
 
 export const bundleAssets = () => {
     const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
@@ -11,7 +12,7 @@ export const bundleAssets = () => {
         nectar(assets, output);
         ret = true;
     } else {
-        logFn('No assets found.')
+        logFn('No assets field on package.json. mind.bundle-assets.{assets | output}');
     }
     return ret;
 };
@@ -26,9 +27,10 @@ export const bundleGame = (name, version) => {
             const command = (os.platform() === 'win32') ? 'jspm.cmd' : 'jspm';
             const modulePath = createPath(workingDirectory, name, name);
             logFn(`Executing: jspm bundle ${modulePath} - mind-sdk/**/* ${name}.js.`);
+            logFn(`Writing bundle ./${name}.js`);
             const res = spawn(command, ['bundle', `${modulePath} - mind-sdk/**/*`, `${name}.js`]);
             if (!res.error && res.status === 0) {
-                logFn(`Writing manifest ${modulePath}/${name}.manifest.js`);
+                logFn(`Writing manifest ./${name}.manifest.js`);
                 writeManifest(name, modulePath, version);
                 ret = true;
             } else {
@@ -47,14 +49,30 @@ export const setLogHandler = handlerFn => {
     }
 };
 
+export const uploadBundle = (bundleName, version) => {
+    let [s3folder, s3bucket] = [getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder,
+                                getPackageJsonField('mind.aws.s3bucket') || DEFAULTS.s3bucket];
+    const bundleKey = createPath(s3folder, bundleName, version, `${bundleName}.js`);
+    const manifestKey = createPath(s3folder, bundleName, 'manifest', `${bundleName}.manifest.js`);
+    logFn(`Uploading bundlet to S3: bucket: ${s3bucket}, key ${bundleKey}`);
+    return upload(`${bundleName}.js`, bundleKey, s3bucket)
+            .then(success => {
+                logFn(`Uploading manifest to S3: bucket: ${s3bucket}, key ${manifestKey}`);
+                if (success) {
+                    return upload(`${bundleName}.manifest.js`, manifestKey, s3bucket);
+                }
+            });
+}
+
 const writeManifest = (name, arenakey, version) => {
     const sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
+    const folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
     const manifest = {
         'module': name,
         'arenaKey': arenakey,
         'version' : version,
         'sdkBundleFile': `/pilot/sdk/mind-sdk-${sdkVersion}.js`,
-        'gameBundleFile': createPath('/pilot/arenas', name, version, name + '.js'),
+        'gameBundleFile': createPath(folder, name, version, name + '.js'),
         'assetsBaseUrl': `/pilot`,
         'systemJsConfig': {
             'map': {
@@ -99,3 +117,8 @@ const getPackageJsonFields = (ns = '', fields = undefined) => {
 };
 
 let logFn = (_) => {};
+
+const DEFAULTS = {
+    s3bucket: 'mri-game-conversion',
+    s3folder: '/pilot/arenas'
+}

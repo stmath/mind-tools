@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-import {upload} from './lib/s3';
-import {bundleGame, bundleAssets, setLogHandler} from './lib/bundle';
+import {bundleGame, bundleAssets, uploadBundle, setLogHandler} from './lib/bundle';
 import {getLastTag, addTag} from './lib/git';
 
 let bundleName;
@@ -56,7 +55,7 @@ if (errorCode === 0) {
 	})
 	.then(res => {
 		if (res) {
-			log("Finish upload.");
+			log("Upload finish.");
 		}
 	})
 	.catch(err => {
@@ -64,21 +63,3 @@ if (errorCode === 0) {
 		process.exit(errorCode);
 	})
 }
-
-
-const uploadBundle = (bundleName, version) => {
-	return upload(`${bundleName}.js`,
-		`pilot/arenas/${bundleName}/${version}/${bundleName}.js`,
-		S3_BUCKET)
-	.then(success => {
-		if (success) {
-			return upload(`${bundleName}.manifest.js`,
-				`pilot/arenas/${bundleName}/manifest/${bundleName}.manifest.js`,
-				S3_BUCKET);
-		}
-	});
-}
-
-const S3_BUCKET = 'mri-game-conversion';
-
-
