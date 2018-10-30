@@ -26,8 +26,47 @@ Make sure to have the appropiate credentials for your AWS account, and a configu
 
 ## For using the tool
 
+### 1. Directly
+
+1. Configure bitbucket authentication.
+
+ ***On windows***
+	Make sure you have correctly configured the bitbucket credentials for git since npm is assuming a public repo, so there is no prompt for user password.
+	The latest version of git seems to ignore the credentials stored in Windows Credential Manager, the only way to workaround this is by ejecuting the git tool:
+ ```shell
+    > git config --global credential.helper wincred
+	> <Perform any task that required authentication>, like git pull or push.
+ ```
+
+***On Linux***
+You can use a file or memory to (permanent/temporarily) store credentials.
+
+```shell
+    $ git config --global credential.helper 'cache --timeout 12600' # or
+	$ <Perform any task that required authentication>, like pull or push.
+ ```
+
+ or
+
+```shell
+    $ git config --global credential.helper 'store --file ~/.mind-credentials'
+	$ <Perform any task that requires authentication>, like pull or push.
+ ```
+
+*** on MacOSX ***
+
+osxkeychain operates in a similar fashion to "cache" and "store" helpers on linux.
+
+2. Install
+
+```shell
+    $ npm install -g git+https://bitbucket.mindresearch.org/scm/stm/mind-tools.git
+```
+
+### 2. Cloning the repo.
+
   ```shell
-    $ git clone https://rmiller@bitbucket.mindresearch.org/scm/stm/mind-tools.git
+    $ git clone https://bitbucket.mindresearch.org/scm/stm/mind-tools.git
 	$ npm install
 	$ npm link # this includes npm run build.
   ```
@@ -42,10 +81,12 @@ You can run npm run build-dev, so sources.map files are created.
 
 ## Updating.
 
-If already linked, just rebuild the package.
+If already linked, just rebuild the package and, if needed, fix permissions.
 ```shell
 	$ node run build
+	$ chmod +x ~/.node_modules/bin/mindbuild # Only on linux/mac
 ```
+
 
 # Using it.
 
