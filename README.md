@@ -42,7 +42,7 @@ Make sure to have the appropiate credentials for your AWS account, and a configu
 You can use a file or memory to (permanent/temporarily) store credentials.
 
 ```shell
-    $ git config --global credential.helper 'cache --timeout 12600' # or
+    $ git config --global credential.helper 'cache --timeout 12600'
 	$ <Perform any task that required authentication>, like pull or push.
  ```
 
@@ -71,15 +71,6 @@ osxkeychain operates in a similar fashion to "cache" and "store" helpers on linu
 	$ npm link # this includes npm run build.
   ```
 
-## For develop.
-
-You can run npm run build-dev, so sources.map files are created.
-
-```shell
-	$ npm run build-dev
-	$ chmod +x ~/.node_modules/bin/mindbuild # Only on linux/mac see below.
-```
-
 ## Updating.
 
 If already linked, just rebuild the package and, if needed, fix permissions.
@@ -88,6 +79,14 @@ If already linked, just rebuild the package and, if needed, fix permissions.
 	$ chmod +x ~/.node_modules/bin/mindbuild # Only on linux/mac
 ```
 
+## For debugging.
+
+npm link runs the install scripts, wich makes a npm run build. You can just run npm run build-dev, so sources.map files are created.
+
+```shell
+	$ npm run build-dev
+	$ chmod +x ~/.node_modules/bin/mindbuild # If needed (only on linux/mac), fix permissions.
+```
 
 # Using it.
 
