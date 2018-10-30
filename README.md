@@ -77,6 +77,7 @@ You can run npm run build-dev, so sources.map files are created.
 
 ```shell
 	$ npm run build-dev
+	$ chmod +x ~/.node_modules/bin/mindbuild # Only on linux/mac see below.
 ```
 
 ## Updating.
