@@ -38,7 +38,8 @@ if (errorCode === 0) {
 		}
 		version = String(parseInt(version) + 1);
 		log('Bundling assets');
-		(0, _bundle.bundleAssets)();
+		return (0, _bundle.bundleAssets)();
+	}).then(function (_) {
 		log('Bundling game');
 		var success = (0, _bundle.bundleGame)(bundleName, version);
 		var promise = void 0;

@@ -40,10 +40,14 @@ var bundleAssets = exports.bundleAssets = function bundleAssets() {
         assets = _getPackageJsonFields2[0],
         output = _getPackageJsonFields2[1];
 
-    var ret = false;
+    var ret = Promise.resolve(true);
     if (assets && output && assets.length > 0 && output.length > 0) {
-        (0, _nectar2.default)(assets, output);
-        ret = true;
+        ret = (0, _nectar2.default)(assets, output).then(function (_) {
+            return true;
+        }).catch(function (error) {
+            logFn('Error on bundle assets ' + error.message);
+            return false;
+        });
     } else {
         logFn('No assets field on package.json. mind.bundle-assets.{assets | output}');
     }
