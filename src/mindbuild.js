@@ -31,7 +31,9 @@ if (errorCode === 0) {
 		}
 		version = String(parseInt(version) + 1);
 		log('Bundling assets');
-		bundleAssets();
+		return bundleAssets();
+	})
+	.then(_ => {
 		log('Bundling game');
 		let success = bundleGame(bundleName, version);
 		let promise;

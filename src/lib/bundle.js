@@ -12,10 +12,14 @@ import {upload} from './s3';
  */
 export const bundleAssets = () => {
     const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
-    let ret = false;
+    let ret = Promise.resolve(true);
     if (assets && output && assets.length > 0 && output.length > 0) {
-        nectar(assets, output);
-        ret = true;
+        ret = nectar(assets, output)
+                .then(_ => true)
+                .catch(error => {
+                    logFn(`Error on bundle assets ${error.message}`);
+                    return false;
+                });
     } else {
         logFn('No assets field on package.json. mind.bundle-assets.{assets | output}');
     }
