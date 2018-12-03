@@ -93,27 +93,14 @@ npm link runs the install scripts, wich makes a npm run build. You can just run 
 Just execute mindbuild in the root of any mind game. e.g LargeNumComparison.
 
 ```shell
-	$ mindbuild --name LargeNumComparison
+	$ mindbuild
 ```
- ## Options:
+ ## Game specific Options:
 
- The package.json in the root folder should include a field for the directory containing the source file for bundling.
+ The package.json in the game's repository root folder has to include some information required by the building process 
 
-```javascript
-	{
-		"jspm": {
-			...
-			"directories": {
-				"lib": "PixiArenas"
-			}
-			...
-		}
-		...
-	}
-
-```
-
-Optionally other fields can be added:
+ The lib directlry under the jspm section is required for bundling.
+ In the "mind" section, the game name is mandatory and should be identical to the arena key.
 
 ```javascript
 {
@@ -125,7 +112,7 @@ Optionally other fields can be added:
 		...
 	},
 	"mind": {
-		"name": "LargeNumComparison"			// Game name if --name parameter is not given.
+		"name": "LargeNumComparison"			// Game name, mandatory
 		"aws": {
 			"s3folder": "rmiller-test/pilot" 	// default is pilot/arenas
 			"s3bucket": "mri-game-conversion"	// default
@@ -136,7 +123,6 @@ Optionally other fields can be added:
 				"assets/shapes/*"
 			]
 			"output": "assets/ExampleGame.tar",	// Assets output
-
 		}
 	}
 }
