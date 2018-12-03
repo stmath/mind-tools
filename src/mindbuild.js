@@ -1,25 +1,26 @@
 #!/usr/bin/env node
 import {bundleGame, bundleAssets, uploadBundle, setLogHandler} from './lib/bundle';
 import {getLastTag, addTag} from './lib/git';
+import {createDestFolder} from './lib/common/file';
 
-let bundleName;
+const optionDefinitions = [
+	{ name: 'tag', type: Boolean},
+	{ name: 'upload', alias: 'u', type: String },
+	{ name: 'dest', alias: 'd', type: String, defaultValue: 'dist/' }
+  ]
+
+const commandLineArgs = require('command-line-args')
+const options = commandLineArgs(optionDefinitions)
+console.log(options);
+
 let errorCode = 0;
 const log = console.log;
-const [,, ...args] = process.argv;
-const index = args.indexOf('--name');
-
-if (index >= 0) {
-	bundleName = args[index + 1];
-	if (typeof bundleName !== 'string' || bundleName.length === 0) {
-		log('Invalid argument for --name');
-		errorCode = 65;
-	}
-}
 
 setLogHandler(log);
 
 if (errorCode === 0) {
 	let version;
+	createDestFolder(options.dest);
 	getLastTag()
 	.then(res => {
 		version = res;
@@ -31,22 +32,30 @@ if (errorCode === 0) {
 		}
 		version = String(parseInt(version) + 1);
 		log('Bundling assets');
-		return bundleAssets();
+		return bundleAssets(options.dest);
 	})
 	.then(_ => {
 		log('Bundling game');
-		let success = bundleGame(bundleName, version);
+		let success = bundleGame(version, options.dest);
 		let promise;
 		if (!success) {
 			promise = Promise.reject(new Error('Error while bundling game.'));
 		} else {
-			promise = uploadBundle(bundleName, version);
+			if (options.upload) {
+				promise = uploadBundle(bundleName, version);
+			} else {
+				promise = Promise.resolve();
+			}
 		}
 		return promise;
 	})
 	.then(_ => {
-		log(`Tagging git branch with version: ${version}`);
-		return addTag(version);
+		if (options.tag) {
+			log(`Tagging git branch with version: ${version}`);
+			return addTag(version);
+		} else {
+			return Promise.resolve();
+		}
 	})
 	.catch(err => {
 		log(err.message);

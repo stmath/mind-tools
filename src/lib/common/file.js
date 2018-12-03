@@ -86,3 +86,10 @@ export const createPath = (...args) => {
         .map(a => a.split('/').filter(e => e.length > 0).join('/')) // Remove extra /
         .join('/');
 }
+
+export const createDestFolder = (path) => {
+	
+	if (!FS.existsSync(path)){
+		FS.mkdirSync(path);
+	}	
+}

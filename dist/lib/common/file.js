@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
 	value: true
 });
-exports.createPath = exports.getJsonFile = exports.contentType = undefined;
+exports.createDestFolder = exports.createPath = exports.getJsonFile = exports.contentType = undefined;
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
@@ -96,4 +96,11 @@ var createPath = exports.createPath = function createPath() {
 		}).join('/');
 	}) // Remove extra /
 	.join('/');
+};
+
+var createDestFolder = exports.createDestFolder = function createDestFolder(path) {
+
+	if (!_fs2.default.existsSync(path)) {
+		_fs2.default.mkdirSync(path);
+	}
 };

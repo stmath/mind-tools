@@ -34,7 +34,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
  *
  * @returns
  */
-var bundleAssets = exports.bundleAssets = function bundleAssets() {
+var bundleAssets = exports.bundleAssets = function bundleAssets(dest) {
     var _getPackageJsonFields = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']),
         _getPackageJsonFields2 = _slicedToArray(_getPackageJsonFields, 2),
         assets = _getPackageJsonFields2[0],
@@ -42,7 +42,7 @@ var bundleAssets = exports.bundleAssets = function bundleAssets() {
 
     var ret = Promise.resolve(true);
     if (assets && output && assets.length > 0 && output.length > 0) {
-        ret = (0, _nectar2.default)(assets, output).then(function (_) {
+        ret = (0, _nectar2.default)(assets, dest + output).then(function (_) {
             return true;
         }).catch(function (error) {
             logFn('Error on bundle assets ' + error.message);
@@ -61,8 +61,8 @@ var bundleAssets = exports.bundleAssets = function bundleAssets() {
  * @param {string/number} version: Game version
  * @returns {boolean}: True if succeeds
  */
-var bundleGame = exports.bundleGame = function bundleGame(name, version) {
-    name = name || getPackageJsonField('mind.name');
+var bundleGame = exports.bundleGame = function bundleGame(version, dest) {
+    var name = getPackageJsonField('mind.name');
     var ret = false;
     if (typeof name === 'string' && name.length > 0) {
         var workingDirectory = getPackageJsonField('jspm.directories.lib');
@@ -73,10 +73,10 @@ var bundleGame = exports.bundleGame = function bundleGame(name, version) {
             var modulePath = (0, _file.createPath)(workingDirectory, name, name);
             logFn('Executing: jspm bundle ' + modulePath + ' - mind-sdk/**/* ' + name + '.js.');
             logFn('Writing bundle ./' + name + '.js');
-            var res = spawn(command, ['bundle', modulePath + ' - mind-sdk/**/*', name + '.js']);
+            var res = spawn(command, ['bundle', modulePath + ' - mind-sdk/**/*', dest + name + '.js']);
             if (!res.error && res.status === 0) {
-                logFn('Writing manifest ./' + name + '.manifest.js');
-                writeManifest(name, modulePath, version);
+                logFn('Writing manifest ./' + (dest + name) + '.manifest.js');
+                writeManifest(name, modulePath, version, dest);
                 ret = true;
             } else {
                 logFn('Error: Jspm finish with status ' + res.status + ' and error: ' + res.error + '.');
@@ -133,7 +133,7 @@ var uploadBundle = exports.uploadBundle = function uploadBundle(bundleName, vers
     return promise;
 };
 
-var writeManifest = function writeManifest(name, arenakey, version) {
+var writeManifest = function writeManifest(name, arenakey, version, dest) {
     var sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
     var folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
     var manifest = {
@@ -150,7 +150,7 @@ var writeManifest = function writeManifest(name, arenakey, version) {
         }
     };
     try {
-        _fs2.default.writeFileSync(name + '.manifest.js', JSON.stringify(manifest, null, 2));
+        _fs2.default.writeFileSync(dest + name + '.manifest.js', JSON.stringify(manifest, null, 2));
     } catch (e) {
         logFn('Error writing manifest: ' + e);
     }
