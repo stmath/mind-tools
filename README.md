@@ -91,14 +91,26 @@ npm link runs the install scripts, wich makes a npm run build. You can just run 
 # Using it.
 
 Just execute mindbuild in the root of any mind game. By default this will get asset bundles, game bundle and game manifest files created under a new ./dist folder. The manifest will report the version number for this build by incrementing the biggest avilable tag for the repo.
-
-Adding a --tag flag will (after successful bundling) create and push a new tag with the version number written on the manifest. If the biggest tag number was N before running the command, the manifest will be created reporting its version is N+1, and the repo will be tagged with a tag being N+1
-
-Adding a --upload flag will (after successful bundling) attempt to upload the artifacts to an s3 bucket. (This features needs to get updated to account for the new /dist folder).
-
 ```shell
 	$ mindbuild
 ```
+
+Adding a --tag flag will (after successful bundling) create and push a new tag with the version number written on the manifest. If the biggest tag number was N before running the command, the manifest will be created reporting its version is N+1, and the repo will be tagged with a tag being N+1
+```shell
+	$ mindbuild --tag
+```
+
+Adding a --upload flag will (after successful bundling) attempt to upload the artifacts to an s3 bucket. (This features needs to get updated to account for the new /dist folder).
+```shell
+	$ mindbuild --upload
+```
+
+Adding a --test flag will run automated test on the game, and skip tagging or uploading independently of the results of the test. The status code of the mindbuild command will be zero if no errors are found, or 1 if errors have been found.
+```shell
+	$ mindbuild --test
+```
+
+
  ## Game specific Options:
 
  The package.json in the game's repository root folder has to include some information required by the building process 
