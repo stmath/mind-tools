@@ -10,11 +10,11 @@ import {upload} from './s3';
  *
  * @returns
  */
-export const bundleAssets = () => {
+export const bundleAssets = (dest) => {
     const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
     let ret = Promise.resolve(true);
     if (assets && output && assets.length > 0 && output.length > 0) {
-        ret = nectar(assets, output)
+        ret = nectar(assets, dest+output)
                 .then(_ => true)
                 .catch(error => {
                     logFn(`Error on bundle assets ${error.message}`);
@@ -34,8 +34,8 @@ export const bundleAssets = () => {
  * @param {string/number} version: Game version
  * @returns {boolean}: True if succeeds
  */
-export const bundleGame = (name, version) => {
-    name = name || getPackageJsonField('mind.name');
+export const bundleGame = (version, dest) => {
+    let name = getPackageJsonField('mind.name');
     let ret = false;
     if (typeof name === 'string' && name.length > 0) {
         const workingDirectory = getPackageJsonField('jspm.directories.lib');
@@ -46,10 +46,10 @@ export const bundleGame = (name, version) => {
             const modulePath = createPath(workingDirectory, name, name);
             logFn(`Executing: jspm bundle ${modulePath} - mind-sdk/**/* ${name}.js.`);
             logFn(`Writing bundle ./${name}.js`);
-            const res = spawn(command, ['bundle', `${modulePath} - mind-sdk/**/*`, `${name}.js`]);
+            const res = spawn(command, ['bundle', `${modulePath} - mind-sdk/**/*`, `${dest+name}.js`]);
             if (!res.error && res.status === 0) {
-                logFn(`Writing manifest ./${name}.manifest.js`);
-                writeManifest(name, modulePath, version);
+                logFn(`Writing manifest ./${dest+name}.manifest.js`);
+                writeManifest(name, modulePath, version, dest);
                 ret = true;
             } else {
                 logFn(`Error: Jspm finish with status ${res.status} and error: ${res.error}.`);
@@ -106,7 +106,7 @@ export const uploadBundle = (bundleName, version) => {
     return promise;
 }
 
-const writeManifest = (name, arenakey, version) => {
+const writeManifest = (name, arenakey, version, dest) => {
     const sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
     const folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
     const manifest = {
@@ -123,7 +123,7 @@ const writeManifest = (name, arenakey, version) => {
         }
     };
     try {
-        FS.writeFileSync(`${name}.manifest.js`, JSON.stringify(manifest, null, 2));
+        FS.writeFileSync(`${dest+name}.manifest.js`, JSON.stringify(manifest, null, 2));
     } catch (e) {
         logFn(`Error writing manifest: ${e}`);
     }

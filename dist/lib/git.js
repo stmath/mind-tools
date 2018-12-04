@@ -60,7 +60,9 @@ var addTag = exports.addTag = function addTag(tagname) {
     return new Promise(function (resolve, reject) {
         if (typeof tagname === 'string' && tagname.length > 0 || typeof tagname === 'number') {
             (0, _simpleGit2.default)(dir).addTag(String(tagname), function (err, tags) {
-                resolve(tags);
+                (0, _simpleGit2.default)(dir).pushTags('origin', function () {
+                    resolve(tags);
+                });
             });
         } else {
             reject(new Error('Invalid tag name'));

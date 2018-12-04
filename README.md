@@ -90,30 +90,21 @@ npm link runs the install scripts, wich makes a npm run build. You can just run 
 
 # Using it.
 
-Just execute mindbuild in the root of any mind game. e.g LargeNumComparison.
+Just execute mindbuild in the root of any mind game. By default this will get asset bundles, game bundle and game manifest files created under a new ./dist folder. The manifest will report the version number for this build by incrementing the biggest avilable tag for the repo.
+
+Adding a --tag flag will (after successful bundling) create and push a new tag with the version number written on the manifest. If the biggest tag number was N before running the command, the manifest will be created reporting its version is N+1, and the repo will be tagged with a tag being N+1
+
+Adding a --upload flag will (after successful bundling) attempt to upload the artifacts to an s3 bucket. (This features needs to get updated to account for the new /dist folder).
 
 ```shell
-	$ mindbuild --name LargeNumComparison
+	$ mindbuild
 ```
- ## Options:
+ ## Game specific Options:
 
- The package.json in the root folder should include a field for the directory containing the source file for bundling.
+ The package.json in the game's repository root folder has to include some information required by the building process 
 
-```javascript
-	{
-		"jspm": {
-			...
-			"directories": {
-				"lib": "PixiArenas"
-			}
-			...
-		}
-		...
-	}
-
-```
-
-Optionally other fields can be added:
+ The lib directlry under the jspm section is required for bundling.
+ In the "mind" section, the game name is mandatory and should be identical to the arena key.
 
 ```javascript
 {
@@ -125,7 +116,7 @@ Optionally other fields can be added:
 		...
 	},
 	"mind": {
-		"name": "LargeNumComparison"			// Game name if --name parameter is not given.
+		"name": "LargeNumComparison"			// Game name, mandatory
 		"aws": {
 			"s3folder": "rmiller-test/pilot" 	// default is pilot/arenas
 			"s3bucket": "mri-game-conversion"	// default
@@ -136,7 +127,6 @@ Optionally other fields can be added:
 				"assets/shapes/*"
 			]
 			"output": "assets/ExampleGame.tar",	// Assets output
-
 		}
 	}
 }

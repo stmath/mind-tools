@@ -40,7 +40,9 @@ export const addTag = (tagname, dir = undefined) => {
     return new Promise((resolve, reject) => {
         if ((typeof tagname === 'string' && tagname.length > 0) || typeof tagname === 'number') {
             git(dir).addTag(String(tagname), (err, tags) => {
-                resolve(tags);
+                git(dir).pushTags('origin', () => {
+                    resolve(tags);
+                })
             });
         } else {
             reject(new Error('Invalid tag name'));
