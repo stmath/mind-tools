@@ -90,7 +90,11 @@ npm link runs the install scripts, wich makes a npm run build. You can just run 
 
 # Using it.
 
-Just execute mindbuild in the root of any mind game. e.g LargeNumComparison.
+Just execute mindbuild in the root of any mind game. By default this will get asset bundles, game bundle and game manifest files created under a new ./dist folder. The manifest will report the version number for this build by incrementing the biggest avilable tag for the repo.
+
+Adding a --tag flag will (after successful bundling) create and push a new tag with the version number written on the manifest. If the biggest tag number was N before running the command, the manifest will be created reporting its version is N+1, and the repo will be tagged with a tag being N+1
+
+Adding a --upload flag will (after successful bundling) attempt to upload the artifacts to an s3 bucket. (This features needs to get updated to account for the new /dist folder).
 
 ```shell
 	$ mindbuild
