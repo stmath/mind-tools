@@ -3,6 +3,7 @@ import {bundleGame, bundleAssets, uploadBundle, setLogHandler} from './lib/bundl
 import {testGame} from './lib/test';
 import {getLastTag, addTag} from './lib/git';
 import {mkdir} from './lib/common/file';
+import commandLineArgs from 'command-line-args';
 
 const optionDefinitions = [
 	{ name: 'test', type: Boolean, defaultValue: false},
@@ -11,9 +12,7 @@ const optionDefinitions = [
 	{ name: 'dest', alias: 'd', type: String, defaultValue: 'dist/' },
 ];
 
-const commandLineArgs = require('command-line-args')
-const options = commandLineArgs(optionDefinitions)
-
+const options = commandLineArgs(optionDefinitions);
 const log = console.log;
 
 setLogHandler(log);
