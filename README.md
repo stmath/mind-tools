@@ -128,17 +128,17 @@ Adding a --test flag will run automated test on the game, and skip tagging or up
 		...
 	},
 	"mind": {
-		"name": "LargeNumComparison"			// Game name, mandatory
+		"name": "LargeNumComparison",			// Game name, mandatory
 		"aws": {
-			"s3folder": "rmiller-test/pilot" 	// default is pilot/arenas
+			"s3folder": "rmiller-test/pilot", 	// default is pilot/arenas
 			"s3bucket": "mri-game-conversion"	// default
 		},
 		"bundle-assets": {
 			"assets": [							// Asset directories.
 				"assets/ExampleGame/locale/*",
 				"assets/shapes/*"
-			]
-			"output": "assets/ExampleGame.tar",	// Assets output
+			],
+			"output": "assets/ExampleGame.tar"	// Assets output
 		}
 	}
 }
