@@ -7,21 +7,28 @@ import {upload} from './s3';
 
 /**
  * Bundle assets defined in mind.bundle-assets.assets = [] & mind.bundle-assets.output = ''
+ * Returns a promise that end with true if succeed.
  *
- * @returns
+ * @param {String} dest: Destination directory
+ * @returns {Object<Promise>}
  */
 export const bundleAssets = (dest) => {
     const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
     let ret = Promise.resolve(true);
     if (assets && output && assets.length > 0 && output.length > 0) {
         const destPath = createPath(dest, output);
-        mkdir(destPath.substr(0, destPath.lastIndexOf('/')));
-        ret = nectar(assets, destPath)
-                .then(_ => true)
-                .catch(error => {
-                    logFn(`Error on bundle assets ${error.message}`);
-                    return false;
-                });
+        const mkdirRes = mkdir(destPath.substr(0, destPath.lastIndexOf('/')));
+        if (mkdirRes.ok) {
+            ret = nectar(assets, destPath)
+            .then(_ => true)
+            .catch(error => {
+                logFn(`Error on bundle assets ${error.message}`);
+                return false;
+            });
+        } else {
+            logFn(`Error on bundle assets. Can't create a ${destPath} directory. Fail with message: ${mkdirRes.message}`);
+            ret = Promise.resolve(false);
+        }
     } else {
         logFn('No assets field on package.json. mind.bundle-assets.{assets | output}');
     }

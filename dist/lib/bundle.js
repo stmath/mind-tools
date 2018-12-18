@@ -31,8 +31,10 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 /**
  * Bundle assets defined in mind.bundle-assets.assets = [] & mind.bundle-assets.output = ''
+ * Returns a promise that end with true if succeed.
  *
- * @returns
+ * @param {String} dest: Destination directory
+ * @returns {Object<Promise>}
  */
 var bundleAssets = exports.bundleAssets = function bundleAssets(dest) {
     var _getPackageJsonFields = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']),
@@ -43,13 +45,18 @@ var bundleAssets = exports.bundleAssets = function bundleAssets(dest) {
     var ret = Promise.resolve(true);
     if (assets && output && assets.length > 0 && output.length > 0) {
         var destPath = (0, _file.createPath)(dest, output);
-        (0, _file.mkdir)(destPath.substr(0, destPath.lastIndexOf('/')));
-        ret = (0, _nectar2.default)(assets, destPath).then(function (_) {
-            return true;
-        }).catch(function (error) {
-            logFn('Error on bundle assets ' + error.message);
-            return false;
-        });
+        var mkdirRes = (0, _file.mkdir)(destPath.substr(0, destPath.lastIndexOf('/')));
+        if (mkdirRes.ok) {
+            ret = (0, _nectar2.default)(assets, destPath).then(function (_) {
+                return true;
+            }).catch(function (error) {
+                logFn('Error on bundle assets ' + error.message);
+                return false;
+            });
+        } else {
+            logFn('Error on bundle assets. Can\'t create a ' + destPath + ' directory. Fail with message: ' + mkdirRes.message);
+            ret = Promise.resolve(false);
+        }
     } else {
         logFn('No assets field on package.json. mind.bundle-assets.{assets | output}');
     }
