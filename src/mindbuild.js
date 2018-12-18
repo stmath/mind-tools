@@ -2,19 +2,18 @@
 import {bundleGame, bundleAssets, uploadBundle, setLogHandler} from './lib/bundle';
 import {testGame} from './lib/test';
 import {getLastTag, addTag} from './lib/git';
-import {createDestFolder} from './lib/common/file';
+import {mkdir} from './lib/common/file';
 
 const optionDefinitions = [
 	{ name: 'test', type: Boolean, defaultValue: false},
 	{ name: 'tag', type: Boolean},
 	{ name: 'upload', alias: 'u', type: String },
 	{ name: 'dest', alias: 'd', type: String, defaultValue: 'dist/' },
-  ]
+];
 
 const commandLineArgs = require('command-line-args')
 const options = commandLineArgs(optionDefinitions)
 
-let errorCode = 0;
 const log = console.log;
 
 setLogHandler(log);
@@ -30,7 +29,7 @@ if (options.test) {
 	}
 } else {
 	let version;
-	createDestFolder(options.dest);
+	mkdir(options.dest);
 	getLastTag()
 	.then(res => {
 		version = res;
@@ -52,7 +51,7 @@ if (options.test) {
 			promise = Promise.reject(new Error('Error while bundling game.'));
 		} else {
 			if (options.upload) {
-				promise = uploadBundle(bundleName, version);
+				promise = uploadBundle(version);
 			} else {
 				promise = Promise.resolve();
 			}
