@@ -42,7 +42,9 @@ var bundleAssets = exports.bundleAssets = function bundleAssets(dest) {
 
     var ret = Promise.resolve(true);
     if (assets && output && assets.length > 0 && output.length > 0) {
-        ret = (0, _nectar2.default)(assets, dest + output).then(function (_) {
+        var destPath = (0, _file.createPath)(dest, output);
+        (0, _file.mkdir)(destPath.substr(0, destPath.lastIndexOf('/')));
+        ret = (0, _nectar2.default)(assets, destPath).then(function (_) {
             return true;
         }).catch(function (error) {
             logFn('Error on bundle assets ' + error.message);
@@ -109,7 +111,9 @@ var setLogHandler = exports.setLogHandler = function setLogHandler(handlerFn) {
  * @param {string/number} version: Game version
  * @returns {object<Promise>}: Ends with true if succeeds.
  */
-var uploadBundle = exports.uploadBundle = function uploadBundle(bundleName, version) {
+var uploadBundle = exports.uploadBundle = function uploadBundle(version) {
+    var bundleName = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : undefined;
+
     bundleName = bundleName || getPackageJsonField('mind.name');
     var promise = void 0;
     if (typeof bundleName === 'string' && bundleName.length > 0) {
@@ -118,7 +122,7 @@ var uploadBundle = exports.uploadBundle = function uploadBundle(bundleName, vers
 
 
         var bundleKey = (0, _file.createPath)(s3folder, bundleName, version, bundleName + '.js');
-        var manifestKey = (0, _file.createPath)(s3folder, bundleName, version, bundleName + '.manifest.js');
+        var manifestKey = (0, _file.createPath)(s3folder, bundleName, version, 'manifest.js');
 
         logFn('Uploading bundlet to S3: bucket: ' + s3bucket + ', key: ' + bundleKey);
         promise = (0, _s2.upload)(bundleName + '.js', bundleKey, s3bucket).then(function (success) {

@@ -14,7 +14,6 @@ var optionDefinitions = [{ name: 'test', type: Boolean, defaultValue: false }, {
 var commandLineArgs = require('command-line-args');
 var options = commandLineArgs(optionDefinitions);
 
-var errorCode = 0;
 var log = console.log;
 
 (0, _bundle.setLogHandler)(log);
@@ -30,7 +29,7 @@ if (options.test) {
 	}
 } else {
 	var version = void 0;
-	(0, _file.createDestFolder)(options.dest);
+	(0, _file.mkdir)(options.dest);
 	(0, _git.getLastTag)().then(function (res) {
 		version = res;
 		if (!version) {
@@ -50,7 +49,7 @@ if (options.test) {
 			promise = Promise.reject(new Error('Error while bundling game.'));
 		} else {
 			if (options.upload) {
-				promise = (0, _bundle.uploadBundle)(bundleName, version);
+				promise = (0, _bundle.uploadBundle)(version);
 			} else {
 				promise = Promise.resolve();
 			}
