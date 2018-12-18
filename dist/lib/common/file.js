@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
 	value: true
 });
-exports.createDestFolder = exports.createPath = exports.getJsonFile = exports.contentType = undefined;
+exports.mkdir = exports.createPath = exports.getJsonFile = exports.contentType = undefined;
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
@@ -76,6 +76,7 @@ var getJsonFile = exports.getJsonFile = function getJsonFile(jsonFile) {
  *  Usage: createPath('/home', '/user', 'dir/', 'dir2', 'file.txt') -> /home/user/dir/dir2/file.txt
  * 		   createPath('home', 'user', 'dir/', 'dir2', 'file.txt') -> home/user/dir/dir2/file.txt
  *         createPath('/', 'home', 'user', 'dir/', 'dir2', 'file.txt') -> /home/user/dir/dir2/file.txt
+ * 		   createPath('/home/user//dir', 'dir2', '///file.txt') -> /home/user/dir/dir2/file.txt
  *
  * @param {*} args
  * @returns
@@ -98,9 +99,28 @@ var createPath = exports.createPath = function createPath() {
 	.join('/');
 };
 
-var createDestFolder = exports.createDestFolder = function createDestFolder(path) {
-
-	if (!_fs2.default.existsSync(path)) {
-		_fs2.default.mkdirSync(path);
+/**
+ * Recursively create a directory.
+ * Returns and object with ok & message props:  ok is true if succeed or the directory already exist,
+ * while message contains any exception message.
+ *
+ * @param {String} path
+ * @returns {object}
+ */
+var mkdir = exports.mkdir = function mkdir(path) {
+	path = createPath(path);
+	var ret = {
+		ok: true,
+		message: false
+	};
+	if (path && !_fs2.default.existsSync(path)) {
+		try {
+			_fs2.default.mkdirSync(path, { recursive: true });
+		} catch (err) {
+			ret.ok = false;
+			ret.err = true;
+			ret.message = err.message;
+		}
 	}
+	return ret;
 };

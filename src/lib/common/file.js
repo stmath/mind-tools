@@ -74,6 +74,7 @@ export const getJsonFile = (jsonFile) => {
  *  Usage: createPath('/home', '/user', 'dir/', 'dir2', 'file.txt') -> /home/user/dir/dir2/file.txt
  * 		   createPath('home', 'user', 'dir/', 'dir2', 'file.txt') -> home/user/dir/dir2/file.txt
  *         createPath('/', 'home', 'user', 'dir/', 'dir2', 'file.txt') -> /home/user/dir/dir2/file.txt
+ * 		   createPath('/home/user//dir', 'dir2', '///file.txt') -> /home/user/dir/dir2/file.txt
  *
  * @param {*} args
  * @returns
@@ -87,9 +88,29 @@ export const createPath = (...args) => {
         .join('/');
 }
 
-export const createDestFolder = (path) => {
-	
-	if (!FS.existsSync(path)){
-		FS.mkdirSync(path);
-	}	
+
+/**
+ * Recursively create a directory.
+ * Returns and object with ok & message props:  ok is true if succeed or the directory already exist,
+ * while message contains any exception message.
+ *
+ * @param {String} path
+ * @returns {object}
+ */
+export const mkdir = (path) => {
+	path = createPath(path);
+	let ret = {
+		ok: true,
+		message: false
+	};
+	if (path && !FS.existsSync(path)){
+		try {
+			FS.mkdirSync(path, {recursive: true});
+		} catch (err) {
+			ret.ok = false;
+			ret.err = true;
+			ret.message = err.message;
+		}
+	}
+	return ret;
 }

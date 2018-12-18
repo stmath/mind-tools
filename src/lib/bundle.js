@@ -2,24 +2,33 @@ import FS from 'fs';
 import nectar from 'nectar';
 import child_process from 'child_process';
 import os from 'os';
-import {getJsonFile, createPath} from './common/file';
+import {getJsonFile, createPath, mkdir} from './common/file';
 import {upload} from './s3';
 
 /**
  * Bundle assets defined in mind.bundle-assets.assets = [] & mind.bundle-assets.output = ''
+ * Returns a promise that end with true if succeed.
  *
- * @returns
+ * @param {String} dest: Destination directory
+ * @returns {Object<Promise>}
  */
 export const bundleAssets = (dest) => {
     const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
     let ret = Promise.resolve(true);
     if (assets && output && assets.length > 0 && output.length > 0) {
-        ret = nectar(assets, dest+output)
-                .then(_ => true)
-                .catch(error => {
-                    logFn(`Error on bundle assets ${error.message}`);
-                    return false;
-                });
+        const destPath = createPath(dest, output);
+        const mkdirRes = mkdir(destPath.substr(0, destPath.lastIndexOf('/')));
+        if (mkdirRes.ok) {
+            ret = nectar(assets, destPath)
+            .then(_ => true)
+            .catch(error => {
+                logFn(`Error on bundle assets ${error.message}`);
+                return false;
+            });
+        } else {
+            logFn(`Error on bundle assets. Can't create a ${destPath} directory. Fail with message: ${mkdirRes.message}`);
+            ret = Promise.resolve(false);
+        }
     } else {
         logFn('No assets field on package.json. mind.bundle-assets.{assets | output}');
     }
@@ -82,7 +91,7 @@ export const setLogHandler = handlerFn => {
  * @param {string/number} version: Game version
  * @returns {object<Promise>}: Ends with true if succeeds.
  */
-export const uploadBundle = (bundleName, version) => {
+export const uploadBundle = (version, bundleName = undefined) => {
     bundleName = bundleName || getPackageJsonField('mind.name');
     let promise;
     if (typeof bundleName === 'string' && bundleName.length > 0) {
@@ -90,7 +99,7 @@ export const uploadBundle = (bundleName, version) => {
                                 getPackageJsonField('mind.aws.s3bucket') || DEFAULTS.s3bucket];
 
         const bundleKey = createPath(s3folder, bundleName, version, `${bundleName}.js`);
-        const manifestKey = createPath(s3folder, bundleName, version, `${bundleName}.manifest.js`);
+        const manifestKey = createPath(s3folder, bundleName, version, 'manifest.js');
 
         logFn(`Uploading bundlet to S3: bucket: ${s3bucket}, key: ${bundleKey}`);
         promise = upload(`${bundleName}.js`, bundleKey, s3bucket)
