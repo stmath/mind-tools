@@ -15,14 +15,16 @@ var _commandLineArgs2 = _interopRequireDefault(_commandLineArgs);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var optionDefinitions = [{ name: 'test', type: Boolean, defaultValue: false }, { name: 'tag', type: Boolean }, { name: 'upload', alias: 'u', type: String }, { name: 'dest', alias: 'd', type: String, defaultValue: 'dist/' }];
+var optionDefinitions = [{ name: 'test', type: Boolean, defaultValue: false }, { name: 'tag', type: Boolean }, { name: 'upload', alias: 'u', type: String }, { name: 'dest', alias: 'd', type: String, defaultValue: 'dist/' }, { name: 'getBundleName', alias: 'b', type: Boolean }];
 
 var options = (0, _commandLineArgs2.default)(optionDefinitions);
 var log = console.log;
 
 (0, _bundle.setLogHandler)(log);
 
-if (options.test) {
+if (options.getBundleName) {
+	log((0, _bundle.getBundleName)() || '');
+} else if (options.test) {
 	log('Running tests');
 	if ((0, _test.testGame)()) {
 		log('Tests passed with no errors');

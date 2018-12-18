@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import {bundleGame, bundleAssets, uploadBundle, setLogHandler} from './lib/bundle';
+import {bundleGame, bundleAssets, uploadBundle, setLogHandler, getBundleName} from './lib/bundle';
 import {testGame} from './lib/test';
 import {getLastTag, addTag} from './lib/git';
 import {mkdir} from './lib/common/file';
@@ -10,6 +10,7 @@ const optionDefinitions = [
 	{ name: 'tag', type: Boolean},
 	{ name: 'upload', alias: 'u', type: String },
 	{ name: 'dest', alias: 'd', type: String, defaultValue: 'dist/' },
+	{ name: 'getBundleName', alias: 'b', type: Boolean}
 ];
 
 const options = commandLineArgs(optionDefinitions);
@@ -17,7 +18,9 @@ const log = console.log;
 
 setLogHandler(log);
 
-if (options.test) {
+if (options.getBundleName) {
+	log(getBundleName() || '');
+} else if (options.test) {
 	log('Running tests');
 	if (testGame()) {
 		log('Tests passed with no errors');
