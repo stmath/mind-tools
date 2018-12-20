@@ -10,7 +10,7 @@ const optionDefinitions = [
 	{ name: 'tag', type: Boolean},
 	{ name: 'upload', alias: 'u', type: String },
 	{ name: 'dest', alias: 'd', type: String, defaultValue: 'dist/' },
-	{ name: 'getBundleName', alias: 'b', type: Boolean}
+	{ name: 'getName', alias: 'b', type: Boolean}
 ];
 
 const options = commandLineArgs(optionDefinitions);
@@ -18,7 +18,7 @@ const log = console.log;
 
 setLogHandler(log);
 
-if (options.getBundleName) {
+if (options.getName) {
 	log(getBundleName() || '');
 } else if (options.test) {
 	log('Running tests');
