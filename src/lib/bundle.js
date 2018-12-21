@@ -115,6 +115,14 @@ export const uploadBundle = (version, bundleName = undefined) => {
     return promise;
 }
 
+/**
+ * Get Bundle Name
+ *
+ * @returns {string}: Bundle name.
+ */
+export const getBundleName = () => getPackageJsonField('mind.name');
+
+
 const writeManifest = (name, arenakey, version, dest) => {
     const sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
     const folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
