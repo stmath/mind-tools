@@ -57,7 +57,7 @@ export const bundleGame = (version, dest) => {
             logFn(`Writing bundle ./${name}.js`);
             const res = spawn(command, ['bundle', `${modulePath} - mind-sdk/**/*`, `${dest+name}.js`]);
             if (!res.error && res.status === 0) {
-                logFn(`Writing manifest ./${dest+name}.manifest.js`);
+                logFn(`Writing manifest ./${dest+name}.manifest.json`);
                 writeManifest(name, modulePath, version, dest);
                 ret = true;
             } else {
