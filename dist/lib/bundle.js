@@ -156,6 +156,12 @@ var getBundleName = exports.getBundleName = function getBundleName() {
 var writeManifest = function writeManifest(name, arenakey, version, dest) {
     var sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
     var folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
+
+    var _getPackageJsonFields3 = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']),
+        _getPackageJsonFields4 = _slicedToArray(_getPackageJsonFields3, 2),
+        assets = _getPackageJsonFields4[0],
+        output = _getPackageJsonFields4[1];
+
     var manifest = {
         'module': name,
         'arenaKey': arenakey,
@@ -169,8 +175,12 @@ var writeManifest = function writeManifest(name, arenakey, version, dest) {
             }
         }
     };
+    if (assets && output && assets.length > 0 && output.length > 0) {
+        manifest.assetsBundleFile = (0, _file.createPath)('/', folder, name, version, output);
+    }
+
     try {
-        _fs2.default.writeFileSync(dest + name + '.manifest.js', JSON.stringify(manifest, null, 2));
+        _fs2.default.writeFileSync(dest + name + '.manifest.json', JSON.stringify(manifest, null, 2));
     } catch (e) {
         logFn('Error writing manifest: ' + e);
     }
@@ -211,5 +221,5 @@ var logFn = function logFn(_) {};
 
 var DEFAULTS = {
     s3bucket: 'mri-game-conversion',
-    s3folder: '/pilot/arenas'
+    s3folder: '/Content_HTML5'
 };

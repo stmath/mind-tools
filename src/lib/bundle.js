@@ -126,6 +126,7 @@ export const getBundleName = () => getPackageJsonField('mind.name');
 const writeManifest = (name, arenakey, version, dest) => {
     const sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
     const folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
+    const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
     const manifest = {
         'module': name,
         'arenaKey': arenakey,
@@ -139,8 +140,12 @@ const writeManifest = (name, arenakey, version, dest) => {
             }
         }
     };
+    if (assets && output && assets.length > 0 && output.length > 0) {
+        manifest.assetsBundleFile = createPath('/', folder, name, version, output);
+    }
+
     try {
-        FS.writeFileSync(`${dest+name}.manifest.js`, JSON.stringify(manifest, null, 2));
+        FS.writeFileSync(`${dest+name}.manifest.json`, JSON.stringify(manifest, null, 2));
     } catch (e) {
         logFn(`Error writing manifest: ${e}`);
     }
@@ -179,5 +184,5 @@ let logFn = (_) => {};
 
 const DEFAULTS = {
     s3bucket: 'mri-game-conversion',
-    s3folder: '/pilot/arenas'
+    s3folder: '/Content_HTML5'
 }
