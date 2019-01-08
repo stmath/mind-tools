@@ -57,7 +57,7 @@ export const bundleGame = (version, dest) => {
             logFn(`Writing bundle ./${name}.js`);
             const res = spawn(command, ['bundle', `${modulePath} - mind-sdk/**/*`, `${dest+name}.js`]);
             if (!res.error && res.status === 0) {
-                logFn(`Writing manifest ./${dest+name}.manifest.json`);
+                logFn(`Writing manifest ./manifest.json`);
                 writeManifest(name, modulePath, version, dest);
                 ret = true;
             } else {
@@ -99,14 +99,14 @@ export const uploadBundle = (version, bundleName = undefined) => {
                                 getPackageJsonField('mind.aws.s3bucket') || DEFAULTS.s3bucket];
 
         const bundleKey = createPath(s3folder, bundleName, version, `${bundleName}.js`);
-        const manifestKey = createPath(s3folder, bundleName, version, 'manifest.js');
+        const manifestKey = createPath(s3folder, bundleName, version, 'manifest.json');
 
         logFn(`Uploading bundlet to S3: bucket: ${s3bucket}, key: ${bundleKey}`);
         promise = upload(`${bundleName}.js`, bundleKey, s3bucket)
             .then(success => {
                 logFn(`Uploading manifest to S3: bucket: ${s3bucket}, key: ${manifestKey}`);
                 if (success) {
-                    return upload(`${bundleName}.manifest.js`, manifestKey, s3bucket);
+                    return upload(`manifest.json`, manifestKey, s3bucket);
                 }
             });
     } else {
@@ -145,7 +145,7 @@ const writeManifest = (name, arenakey, version, dest) => {
     }
 
     try {
-        FS.writeFileSync(`${dest+name}.manifest.json`, JSON.stringify(manifest, null, 2));
+        FS.writeFileSync(`${dest}manifest.json`, JSON.stringify(manifest, null, 2));
     } catch (e) {
         logFn(`Error writing manifest: ${e}`);
     }

@@ -84,7 +84,7 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest) {
             logFn('Writing bundle ./' + name + '.js');
             var res = spawn(command, ['bundle', modulePath + ' - mind-sdk/**/*', dest + name + '.js']);
             if (!res.error && res.status === 0) {
-                logFn('Writing manifest ./' + (dest + name) + '.manifest.json');
+                logFn('Writing manifest ./manifest.json');
                 writeManifest(name, modulePath, version, dest);
                 ret = true;
             } else {
@@ -129,13 +129,13 @@ var uploadBundle = exports.uploadBundle = function uploadBundle(version) {
 
 
         var bundleKey = (0, _file.createPath)(s3folder, bundleName, version, bundleName + '.js');
-        var manifestKey = (0, _file.createPath)(s3folder, bundleName, version, 'manifest.js');
+        var manifestKey = (0, _file.createPath)(s3folder, bundleName, version, 'manifest.json');
 
         logFn('Uploading bundlet to S3: bucket: ' + s3bucket + ', key: ' + bundleKey);
         promise = (0, _s2.upload)(bundleName + '.js', bundleKey, s3bucket).then(function (success) {
             logFn('Uploading manifest to S3: bucket: ' + s3bucket + ', key: ' + manifestKey);
             if (success) {
-                return (0, _s2.upload)(bundleName + '.manifest.js', manifestKey, s3bucket);
+                return (0, _s2.upload)('manifest.json', manifestKey, s3bucket);
             }
         });
     } else {
@@ -180,7 +180,7 @@ var writeManifest = function writeManifest(name, arenakey, version, dest) {
     }
 
     try {
-        _fs2.default.writeFileSync(dest + name + '.manifest.json', JSON.stringify(manifest, null, 2));
+        _fs2.default.writeFileSync(dest + 'manifest.json', JSON.stringify(manifest, null, 2));
     } catch (e) {
         logFn('Error writing manifest: ' + e);
     }
