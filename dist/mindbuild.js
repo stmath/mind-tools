@@ -39,12 +39,15 @@ if (options.gameName) {
 	(0, _git.getLastTag)().then(function (res) {
 		version = res;
 		if (!version) {
-			version = '0';
+			version = '1';
 			log('No git tags finded, started with version 1');
 		} else {
 			log('Current tagged version: ' + version);
 		}
-		version = String(parseInt(version) + 1);
+		if (options.tag) {
+			version = String(parseInt(version) + 1);
+		}
+
 		log('Bundling assets');
 		return (0, _bundle.bundleAssets)(options.dest);
 	}).then(function (_) {
