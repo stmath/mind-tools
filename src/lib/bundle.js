@@ -133,7 +133,7 @@ const writeManifest = (name, arenakey, version, dest) => {
         'version' : version,
         'sdkBundleFile': `/pilot/sdk/mind-sdk-${sdkVersion}.js`,
         'gameBundleFile': createPath('/', folder, name, version, name + '.js'),
-        'assetsBaseUrl': `/pilot`,
+        'assetsBaseUrl': folder,
         'systemJsConfig': {
             'map': {
                 'mind-sdk': `mind:mind-sdk@${sdkVersion}`
@@ -141,7 +141,7 @@ const writeManifest = (name, arenakey, version, dest) => {
         }
     };
     if (assets && output && assets.length > 0 && output.length > 0) {
-        manifest.assetsBundleFile = createPath('/', folder, name, version, output);
+        manifest.assetsBundleFile = createPath('/', name, version, output);
     }
 
     try {
