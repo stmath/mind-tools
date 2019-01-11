@@ -141,7 +141,7 @@ const writeManifest = (name, arenakey, version, dest) => {
         }
     };
     if (assets && output && assets.length > 0 && output.length > 0) {
-        manifest.assetsBundleFile = createPath('/', name, version, output);
+        manifest.assetsBundleFile = createPath('/', name, version, output+'.gz');
     }
 
     try {
