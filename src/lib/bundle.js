@@ -127,6 +127,7 @@ const writeManifest = (name, arenakey, version, dest) => {
     const sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
     const folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
     const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
+    const arenaOptions = getPackageJsonField('mind.arenaOptions') 
     const manifest = {
         'module': name,
         'arenaKey': arenakey,
@@ -142,6 +143,9 @@ const writeManifest = (name, arenakey, version, dest) => {
     };
     if (assets && output && assets.length > 0 && output.length > 0) {
         manifest.assetsBundleFile = createPath('/', name, version, output+'.gz');
+    }
+    if (arenaOptions) {
+        manifest.arenaOptions = arenaOptions;
     }
 
     try {

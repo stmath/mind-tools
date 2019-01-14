@@ -162,6 +162,7 @@ var writeManifest = function writeManifest(name, arenakey, version, dest) {
         assets = _getPackageJsonFields4[0],
         output = _getPackageJsonFields4[1];
 
+    var arenaOptions = getPackageJsonField('mind.arenaOptions');
     var manifest = {
         'module': name,
         'arenaKey': arenakey,
@@ -177,6 +178,9 @@ var writeManifest = function writeManifest(name, arenakey, version, dest) {
     };
     if (assets && output && assets.length > 0 && output.length > 0) {
         manifest.assetsBundleFile = (0, _file.createPath)('/', name, version, output + '.gz');
+    }
+    if (arenaOptions) {
+        manifest.arenaOptions = arenaOptions;
     }
 
     try {
