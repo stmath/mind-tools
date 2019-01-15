@@ -129,6 +129,7 @@ const writeManifest = (name, arenakey, version, dest) => {
     const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
     const webAppOptions = getPackageJsonField('mind.webAppOptions');
     const testHarnessOptions = getPackageJsonField('mind.testHarnessOptions');
+    const overrides = getPackageJsonField('mind.overrides');
     const manifest = {
         'module': name,
         'arenaKey': arenakey,
@@ -150,6 +151,9 @@ const writeManifest = (name, arenakey, version, dest) => {
     }
     if (testHarnessOptions) {
         manifest.testHarnessOptions = testHarnessOptions;
+    }
+    if (overrides) {
+        manifest.overrides = overrides;
     }
 
     try {

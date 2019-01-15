@@ -164,6 +164,7 @@ var writeManifest = function writeManifest(name, arenakey, version, dest) {
 
     var webAppOptions = getPackageJsonField('mind.webAppOptions');
     var testHarnessOptions = getPackageJsonField('mind.testHarnessOptions');
+    var overrides = getPackageJsonField('mind.overrides');
     var manifest = {
         'module': name,
         'arenaKey': arenakey,
@@ -185,6 +186,9 @@ var writeManifest = function writeManifest(name, arenakey, version, dest) {
     }
     if (testHarnessOptions) {
         manifest.testHarnessOptions = testHarnessOptions;
+    }
+    if (overrides) {
+        manifest.overrides = overrides;
     }
 
     try {
