@@ -24,16 +24,16 @@ var log = console.log;
 
 if (options.gameName) {
 	log((0, _bundle.getBundleName)() || '');
-} else if (options.test) {
-	log('Running tests');
-	if ((0, _test.testGame)()) {
-		log('Tests passed with no errors');
-		process.exit(0);
-	} else {
-		log('Tests failed');
-		process.exit(1);
-	}
 } else {
+	if (options.test) {
+		log('Running tests');
+		if ((0, _test.testGame)()) {
+			log('Tests passed with no errors');
+		} else {
+			log('Tests failed');
+			process.exit(1);
+		}
+	}
 	var version = void 0;
 	(0, _file.mkdir)(options.dest);
 	(0, _git.getLastTag)().then(function (res) {

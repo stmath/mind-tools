@@ -20,16 +20,16 @@ setLogHandler(log);
 
 if (options.gameName) {
 	log(getBundleName() || '');
-} else if (options.test) {
-	log('Running tests');
-	if (testGame()) {
-		log('Tests passed with no errors');
-		process.exit(0);
-	} else {
-		log('Tests failed');
-		process.exit(1);
-	}
 } else {
+	if (options.test) {
+		log('Running tests');
+		if (testGame()) {
+			log('Tests passed with no errors');
+		} else {
+			log('Tests failed');
+			process.exit(1);
+		}
+	} 
 	let version;
 	mkdir(options.dest);
 	getLastTag()

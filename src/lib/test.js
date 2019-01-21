@@ -6,8 +6,17 @@ import {getJsonFile} from './common/file';
  * @returns
  */
 export const testGame = () => {
-    const fakTestResult = getPackageJsonField('mind.fakTestResult');
-    return fakTestResult;
+    const config = getPackageJsonField('mind');
+    if (!config) {
+        console.log('Missing mind section in package.json');
+        return false;
+    } else {
+        if (!config.name) {
+            console.log('Missing game name in mind section in package.json');
+            return false;
+        }
+    }
+    return true;
 };
 
 const getPackageJsonField = field => {
