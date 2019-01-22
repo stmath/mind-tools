@@ -49,3 +49,22 @@ export const addTag = (tagname, dir = undefined) => {
         }
     });
 }
+
+/**
+ * Get last commit hash
+ *
+ * @param {*} [dir=undefined]: Working directory. Default current.
+ * @returns
+ */
+export const getLastCommitHash = (dir = undefined) => {
+    return new Promise((resolve, reject) => {
+        git(dir).revparse(['HEAD', '--sq'],(err, hash) => {
+            if (err) {
+                resolve('');
+            } else {
+                resolve(hash.replace(/^\s+|\s+$/g, ''));
+            }
+        });
+    });
+}
+

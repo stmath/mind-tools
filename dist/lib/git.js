@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
-exports.addTag = exports.getLastTag = exports.getTags = undefined;
+exports.getLastCommitHash = exports.addTag = exports.getLastTag = exports.getTags = undefined;
 
 var _simpleGit = require('simple-git');
 
@@ -67,5 +67,25 @@ var addTag = exports.addTag = function addTag(tagname) {
         } else {
             reject(new Error('Invalid tag name'));
         }
+    });
+};
+
+/**
+ * Get last commit hash
+ *
+ * @param {*} [dir=undefined]: Working directory. Default current.
+ * @returns
+ */
+var getLastCommitHash = exports.getLastCommitHash = function getLastCommitHash() {
+    var dir = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : undefined;
+
+    return new Promise(function (resolve, reject) {
+        (0, _simpleGit2.default)(dir).revparse(['HEAD', '--sq'], function (err, hash) {
+            if (err) {
+                resolve('');
+            } else {
+                resolve(hash.replace(/^\s+|\s+$/g, ''));
+            }
+        });
     });
 };

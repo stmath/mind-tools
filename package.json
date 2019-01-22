@@ -27,6 +27,8 @@
   "dependencies": {
     "aws-sdk": "^2.341.0",
     "command-line-args": "^5.0.2",
+    "moment": "^2.24.0",
+    "moment-timezone": "^0.5.23",
     "nectar": "^5.0.4",
     "simple-git": "^1.105.0"
   }

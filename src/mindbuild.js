@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {bundleGame, bundleAssets, uploadBundle, setLogHandler, getBundleName} from './lib/bundle';
 import {testGame} from './lib/test';
-import {getLastTag, addTag} from './lib/git';
+import {getLastTag, addTag, getLastCommitHash} from './lib/git';
 import {mkdir} from './lib/common/file';
 import commandLineArgs from 'command-line-args';
 
@@ -17,10 +17,14 @@ const options = commandLineArgs(optionDefinitions);
 const log = console.log;
 
 setLogHandler(log);
-
+let bundleName = getBundleName();
 if (options.gameName) {
-	log(getBundleName() || '');
+	log(bundleName || '');
 } else {
+	if (bundleName == 'ExampleGame') {
+		log('Ignoring starter kit Example Game');
+		process.exit(0);
+	}
 	if (options.test) {
 		log('Running tests');
 		if (testGame()) {
@@ -36,7 +40,7 @@ if (options.gameName) {
 	.then(res => {
 		version = res;
 		if (!version) {
-			version = '1';
+			version = '0';
 			log('No git tags finded, started with version 1');
 		} else {
 			log(`Current tagged version: ${version}`);
@@ -50,18 +54,20 @@ if (options.gameName) {
 	})
 	.then(_ => {
 		log('Bundling game');
-		let success = bundleGame(version, options.dest);
-		let promise;
-		if (!success) {
-			promise = Promise.reject(new Error('Error while bundling game.'));
-		} else {
-			if (options.upload) {
-				promise = uploadBundle(version);
+		return getLastCommitHash().then((hash) => {
+			let success = bundleGame(version, options.dest, hash);
+			let promise;
+			if (!success) {
+				promise = Promise.reject(new Error('Error while bundling game.'));
 			} else {
-				promise = Promise.resolve();
+				if (options.upload) {
+					promise = uploadBundle(version);
+				} else {
+					promise = Promise.resolve();
+				}
 			}
-		}
-		return promise;
+			return promise;	
+		})
 	})
 	.then(_ => {
 		if (options.tag) {

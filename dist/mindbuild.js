@@ -21,10 +21,14 @@ var options = (0, _commandLineArgs2.default)(optionDefinitions);
 var log = console.log;
 
 (0, _bundle.setLogHandler)(log);
-
+var bundleName = (0, _bundle.getBundleName)();
 if (options.gameName) {
-	log((0, _bundle.getBundleName)() || '');
+	log(bundleName || '');
 } else {
+	if (bundleName == 'ExampleGame') {
+		log('Ignoring starter kit Example Game');
+		process.exit(0);
+	}
 	if (options.test) {
 		log('Running tests');
 		if ((0, _test.testGame)()) {
@@ -39,7 +43,7 @@ if (options.gameName) {
 	(0, _git.getLastTag)().then(function (res) {
 		version = res;
 		if (!version) {
-			version = '1';
+			version = '0';
 			log('No git tags finded, started with version 1');
 		} else {
 			log('Current tagged version: ' + version);
@@ -52,18 +56,20 @@ if (options.gameName) {
 		return (0, _bundle.bundleAssets)(options.dest);
 	}).then(function (_) {
 		log('Bundling game');
-		var success = (0, _bundle.bundleGame)(version, options.dest);
-		var promise = void 0;
-		if (!success) {
-			promise = Promise.reject(new Error('Error while bundling game.'));
-		} else {
-			if (options.upload) {
-				promise = (0, _bundle.uploadBundle)(version);
+		return (0, _git.getLastCommitHash)().then(function (hash) {
+			var success = (0, _bundle.bundleGame)(version, options.dest, hash);
+			var promise = void 0;
+			if (!success) {
+				promise = Promise.reject(new Error('Error while bundling game.'));
 			} else {
-				promise = Promise.resolve();
+				if (options.upload) {
+					promise = (0, _bundle.uploadBundle)(version);
+				} else {
+					promise = Promise.resolve();
+				}
 			}
-		}
-		return promise;
+			return promise;
+		});
 	}).then(function (_) {
 		if (options.tag) {
 			log('Tagging git branch with version: ' + version);

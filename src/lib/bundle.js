@@ -4,6 +4,7 @@ import child_process from 'child_process';
 import os from 'os';
 import {getJsonFile, createPath, mkdir} from './common/file';
 import {upload} from './s3';
+import moment from 'moment-timezone';
 
 /**
  * Bundle assets defined in mind.bundle-assets.assets = [] & mind.bundle-assets.output = ''
@@ -43,7 +44,7 @@ export const bundleAssets = (dest) => {
  * @param {string/number} version: Game version
  * @returns {boolean}: True if succeeds
  */
-export const bundleGame = (version, dest) => {
+export const bundleGame = (version, dest, hash) => {
     let name = getPackageJsonField('mind.name');
     let ret = false;
     if (typeof name === 'string' && name.length > 0) {
@@ -58,7 +59,7 @@ export const bundleGame = (version, dest) => {
             const res = spawn(command, ['bundle', `${modulePath} - mind-sdk/**/*`, `${dest+name}.js`]);
             if (!res.error && res.status === 0) {
                 logFn(`Writing manifest ./manifest.json`);
-                writeManifest(name, modulePath, version, dest);
+                writeManifest(name, modulePath, version, dest, hash);
                 ret = true;
             } else {
                 logFn(`Error: Jspm finish with status ${res.status} and error: ${res.error}.`);
@@ -123,17 +124,20 @@ export const uploadBundle = (version, bundleName = undefined) => {
 export const getBundleName = () => getPackageJsonField('mind.name');
 
 
-const writeManifest = (name, arenakey, version, dest) => {
+const writeManifest = (name, arenakey, version, dest, hash) => {
     const sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
     const folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
     const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
     const webAppOptions = getPackageJsonField('mind.webAppOptions');
     const testHarnessOptions = getPackageJsonField('mind.testHarnessOptions');
     const overrides = getPackageJsonField('mind.overrides');
+    const buildDate = moment().tz('America/Los_Angeles').format();
     const manifest = {
         'module': name,
         'arenaKey': arenakey,
         'version' : version,
+        'buildDate': buildDate,
+        'commit': hash,
         'sdkBundleFile': `/pilot/sdk/mind-sdk-${sdkVersion}.js`,
         'gameBundleFile': createPath('/', folder, name, version, name + '.js'),
         'assetsBaseUrl': folder,

@@ -27,6 +27,10 @@ var _file = require('./common/file');
 
 var _s2 = require('./s3');
 
+var _momentTimezone = require('moment-timezone');
+
+var _momentTimezone2 = _interopRequireDefault(_momentTimezone);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 /**
@@ -70,7 +74,7 @@ var bundleAssets = exports.bundleAssets = function bundleAssets(dest) {
  * @param {string/number} version: Game version
  * @returns {boolean}: True if succeeds
  */
-var bundleGame = exports.bundleGame = function bundleGame(version, dest) {
+var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
     var name = getPackageJsonField('mind.name');
     var ret = false;
     if (typeof name === 'string' && name.length > 0) {
@@ -85,7 +89,7 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest) {
             var res = spawn(command, ['bundle', modulePath + ' - mind-sdk/**/*', dest + name + '.js']);
             if (!res.error && res.status === 0) {
                 logFn('Writing manifest ./manifest.json');
-                writeManifest(name, modulePath, version, dest);
+                writeManifest(name, modulePath, version, dest, hash);
                 ret = true;
             } else {
                 logFn('Error: Jspm finish with status ' + res.status + ' and error: ' + res.error + '.');
@@ -153,7 +157,7 @@ var getBundleName = exports.getBundleName = function getBundleName() {
     return getPackageJsonField('mind.name');
 };
 
-var writeManifest = function writeManifest(name, arenakey, version, dest) {
+var writeManifest = function writeManifest(name, arenakey, version, dest, hash) {
     var sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
     var folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
 
@@ -165,10 +169,13 @@ var writeManifest = function writeManifest(name, arenakey, version, dest) {
     var webAppOptions = getPackageJsonField('mind.webAppOptions');
     var testHarnessOptions = getPackageJsonField('mind.testHarnessOptions');
     var overrides = getPackageJsonField('mind.overrides');
+    var buildDate = (0, _momentTimezone2.default)().tz('America/Los_Angeles').format();
     var manifest = {
         'module': name,
         'arenaKey': arenakey,
         'version': version,
+        'buildDate': buildDate,
+        'commit': hash,
         'sdkBundleFile': '/pilot/sdk/mind-sdk-' + sdkVersion + '.js',
         'gameBundleFile': (0, _file.createPath)('/', folder, name, version, name + '.js'),
         'assetsBaseUrl': folder,
