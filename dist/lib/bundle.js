@@ -86,7 +86,7 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
             var modulePath = (0, _file.createPath)(workingDirectory, name, name);
             logFn('Executing: jspm bundle ' + modulePath + ' - mind-sdk/**/* ' + name + '.js.');
             logFn('Writing bundle ./' + name + '.js');
-            var res = spawn(command, ['bundle', modulePath + ' - mind-sdk/**/*', dest + name + '.js']);
+            var res = spawn(command, ['bundle', modulePath + ' - mind-sdk/**/*', dest + name + '.js'], { stdio: "inherit" });
             if (!res.error && res.status === 0) {
                 logFn('Writing manifest ./manifest.json');
                 writeManifest(name, modulePath, version, dest, hash);

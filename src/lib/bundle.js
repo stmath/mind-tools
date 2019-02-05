@@ -56,7 +56,7 @@ export const bundleGame = (version, dest, hash) => {
             const modulePath = createPath(workingDirectory, name, name);
             logFn(`Executing: jspm bundle ${modulePath} - mind-sdk/**/* ${name}.js.`);
             logFn(`Writing bundle ./${name}.js`);
-            const res = spawn(command, ['bundle', `${modulePath} - mind-sdk/**/*`, `${dest+name}.js`]);
+            const res = spawn(command, ['bundle', `${modulePath} - mind-sdk/**/*`, `${dest+name}.js`], {stdio: "inherit"});
             if (!res.error && res.status === 0) {
                 logFn(`Writing manifest ./manifest.json`);
                 writeManifest(name, modulePath, version, dest, hash);
