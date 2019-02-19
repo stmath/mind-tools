@@ -25,7 +25,7 @@ var bundleName = (0, _bundle.getBundleName)();
 if (options.gameName) {
 	log(bundleName || '');
 } else {
-	if (bundleName == 'ExampleGame') {
+	if (bundleName == 'StarterGameTemplate') {
 		log('Ignoring starter kit Example Game');
 		process.exit(0);
 	}
