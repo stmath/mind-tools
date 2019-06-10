@@ -75,14 +75,14 @@ class SVGOptimizer {
 
     fileIsSVG (filename) {
         let extension = path.extname(filename);
-        return (extension.toLowerCase() === '.svg')
-            ? true
-            : false;
+        return extension.toLowerCase() === '.svg';
     }
 
     optimizeFile (file) {
         let processor = this.SVGo;
-        let outputFile = file.replace(this.config.inputFolder, this.config.outputFolder);
+        let normalInput = this.getNormalizedPath(this.config.inputFolder);
+        let normalOutput = this.getNormalizedPath(this.config.outputFolder);
+        let outputFile = file.replace(normalInput, normalOutput);
         let targetDir = path.dirname(outputFile);
 
         fs.readFile(file, 'utf8', function (err, data) {
@@ -120,8 +120,9 @@ class SVGOptimizer {
             }
         };
         let that = this;
+        let cleanInput = this.getNormalizedPath(this.config.inputFolder);
 
-        let watcher = chokidar.watch(this.config.inputFolder, options);
+        let watcher = chokidar.watch(cleanInput, options);
 
         watcher
             .on('add', function (path) {
@@ -136,6 +137,10 @@ class SVGOptimizer {
             .on('error', function (error) {
                 console.error('Error happened', error);
             });
+    }
+
+    getNormalizedPath (target) {
+        return path.normalize(target);
     }
 }
 
