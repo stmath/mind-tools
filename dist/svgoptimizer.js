@@ -86,13 +86,15 @@ var SVGOptimizer = function () {
         key: 'fileIsSVG',
         value: function fileIsSVG(filename) {
             var extension = path.extname(filename);
-            return extension.toLowerCase() === '.svg' ? true : false;
+            return extension.toLowerCase() === '.svg';
         }
     }, {
         key: 'optimizeFile',
         value: function optimizeFile(file) {
             var processor = this.SVGo;
-            var outputFile = file.replace(this.config.inputFolder, this.config.outputFolder);
+            var normalInput = this.getNormalizedPath(this.config.inputFolder);
+            var normalOutput = this.getNormalizedPath(this.config.outputFolder);
+            var outputFile = file.replace(normalInput, normalOutput);
             var targetDir = path.dirname(outputFile);
 
             fs.readFile(file, 'utf8', function (err, data) {
@@ -130,8 +132,9 @@ var SVGOptimizer = function () {
                 }
             };
             var that = this;
+            var cleanInput = this.getNormalizedPath(this.config.inputFolder);
 
-            var watcher = chokidar.watch(this.config.inputFolder, options);
+            var watcher = chokidar.watch(cleanInput, options);
 
             watcher.on('add', function (path) {
                 that.optimizeIfNeeded(path);
@@ -142,6 +145,11 @@ var SVGOptimizer = function () {
             }).on('error', function (error) {
                 console.error('Error happened', error);
             });
+        }
+    }, {
+        key: 'getNormalizedPath',
+        value: function getNormalizedPath(target) {
+            return path.normalize(target);
         }
     }]);
 
