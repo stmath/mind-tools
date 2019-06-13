@@ -17,13 +17,12 @@ const bundlePkgOptions = {
 	wfolder: options.wfolder,
 	sourceMap: options['source-map'],
 	noMinify: options['no-minify'],
-	skipInstall: options['skip-install'],
-	bundleName: 'api-client-library'
+	skipInstall: options['skip-install']
 };
 
 setLogHandler(console.log);
 
-const status = bundlePkg('mind-api-client-library', options.tag, bundlePkgOptions);
+const status = bundlePkg('mind-sdk', options.tag, bundlePkgOptions);
 
 if (status.error) {
 	status.stderr.pipe(process.stderr);

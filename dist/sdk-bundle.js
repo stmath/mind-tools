@@ -23,13 +23,12 @@ var bundlePkgOptions = {
 	wfolder: options.wfolder,
 	sourceMap: options['source-map'],
 	noMinify: options['no-minify'],
-	skipInstall: options['skip-install'],
-	bundleName: 'api-client-library'
+	skipInstall: options['skip-install']
 };
 
 (0, _jspmPkgBundle.setLogHandler)(console.log);
 
-var status = (0, _jspmPkgBundle.bundlePkg)('mind-api-client-library', options.tag, bundlePkgOptions);
+var status = (0, _jspmPkgBundle.bundlePkg)('mind-sdk', options.tag, bundlePkgOptions);
 
 if (status.error) {
 	status.stderr.pipe(process.stderr);
