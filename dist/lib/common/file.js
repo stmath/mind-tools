@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
 	value: true
 });
-exports.mkdir = exports.createPath = exports.getJsonFile = exports.contentType = undefined;
+exports.mv = exports.mkdir = exports.createPath = exports.getJsonFile = exports.contentType = undefined;
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
@@ -123,4 +123,8 @@ var mkdir = exports.mkdir = function mkdir(path) {
 		}
 	}
 	return ret;
+};
+
+var mv = exports.mv = function mv(oldPath, newPath) {
+	return _fs2.default.renameSync(oldPath, newPath);
 };
