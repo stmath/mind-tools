@@ -114,3 +114,7 @@ export const mkdir = (path) => {
 	}
 	return ret;
 }
+
+export const mv = (oldPath, newPath) => {
+	return FS.renameSync(oldPath, newPath);
+}
