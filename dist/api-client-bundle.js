@@ -45,11 +45,12 @@ var tag = options.tag,
     wfolder = options.wfolder;
 
 
-if (options.tag) {
+if (tag) {
+	var baseFolder = process.cwd();
 	var newDir = (0, _file.createPath)(wfolder);
 	(0, _file.mkdir)(newDir);
 	process.chdir(newDir);
-	(0, _file.mkdir)(dest);
+
 	var command = _os2.default.platform() === 'win32' ? 'jspm.cmd' : 'jspm';
 	log('Installing mind-api-client-library');
 	var status = { status: 0, error: false };
@@ -69,8 +70,10 @@ if (options.tag) {
 		log('Writing api-client-library-' + tag + '.js');
 		status = spawn(command, ['bundle', 'mind-api-client-library/*', bundleName].concat(extraParams), { stdio: "inherit" });
 		if (!status.error && status.status === 0) {
-			var newPath = (0, _file.createPath)(options.dest, bundleName);
-			(0, _file.mv)(bundleName, newPath);
+			process.chdir(baseFolder);
+			(0, _file.mkdir)((0, _file.createPath)(dest));
+			var newPath = (0, _file.createPath)(dest, bundleName);
+			(0, _file.mv)(wfolder + '/' + bundleName, newPath);
 			log('Bundle saved in ' + newPath);
 			exit();
 		}
