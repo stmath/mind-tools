@@ -63,10 +63,11 @@ function bundlePkg(packageName, tag, _ref) {
 		(0, _file.mkdir)(workingFolder);
 		process.chdir(workingFolder);
 
+		var spawn = _child_process2.default.spawnSync;
 		var command = _os2.default.platform() === 'win32' ? 'jspm.cmd' : 'jspm';
 		if (!skipInstall) {
 			log('Installing ' + packageName);
-			status = spawn(command, ['install', ns + ':' + packageName + '@' + tag, '-y']);
+			status = spawn(command, ['install', ns + ':' + packageName + '@' + tag, '-y'], { stdio: 'inherit' });
 		}
 		if (!status.error && status.status === 0) {
 			var extraParams = [];
@@ -79,7 +80,7 @@ function bundlePkg(packageName, tag, _ref) {
 			log('Bundling.');
 			var bundleFileName = bundleName + '-' + tag + '.js';
 			log('Writing ' + bundleFileName);
-			status = spawn(command, ['bundle', packageName + '/*', bundleFileName].concat(extraParams));
+			status = spawn(command, ['bundle', packageName + '/*', bundleFileName].concat(extraParams), { stdio: 'inherit' });
 			if (!status.error && status.status === 0) {
 				process.chdir(baseFolder);
 				(0, _file.mkdir)((0, _file.createPath)(dest));
@@ -105,12 +106,4 @@ var setLogHandler = exports.setLogHandler = function setLogHandler(handlerFn) {
 	if (typeof handlerFn === 'function') {
 		log = handlerFn;
 	}
-};
-
-var spawn = function spawn(command, args) {
-	var status = _child_process2.default.spawnSync(command, args, process.stdout ? { stdio: 'inherit' } : undefined);
-	if (!process.stdout && Buffer.isBuffer(status.output)) {
-		log(status.output.toString());
-	}
-	return status;
 };

@@ -24,7 +24,7 @@ let log = _ => {};
  */
 export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, wfolder, dest, bundleName, ns}) {
 	let status = {status: 0, error: false};
-	if (packageName && typeof packageName === 'string' && ['string', 'number'].includes(typeof tag)) {
+	if (packageName && typeof packageName === 'string' && ['string', 'number'].includes(typeof tag)) {		
 		tag = String(tag);
 		wfolder = wfolder || packageName;
 		dest = dest || 'dist/';
@@ -36,10 +36,11 @@ export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, 
 		mkdir(workingFolder);
 		process.chdir(workingFolder);
 
+		const spawn = child_process.spawnSync;
 		const command = (os.platform() === 'win32') ? 'jspm.cmd' : 'jspm';
 		if (!skipInstall) {
 			log(`Installing ${packageName}`);
-			status = spawn(command, ['install', `${ns}:${packageName}@${tag}`, '-y']);
+			status = spawn(command, ['install', `${ns}:${packageName}@${tag}`, '-y'], {stdio: 'inherit'});
 		}
 		if (!status.error && status.status === 0) {
 			let extraParams = [];
@@ -52,7 +53,7 @@ export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, 
 			log('Bundling.');
 			const bundleFileName = `${bundleName}-${tag}.js`;
 			log(`Writing ${bundleFileName}`);
-			status = spawn(command, ['bundle', `${packageName}/*`, bundleFileName].concat(extraParams));
+			status = spawn(command, ['bundle', `${packageName}/*`, bundleFileName].concat(extraParams), {stdio: 'inherit'});
 			if (!status.error && status.status === 0) {
 				process.chdir(baseFolder);
 				mkdir(createPath(dest));
@@ -78,12 +79,4 @@ export const setLogHandler = handlerFn => {
     if (typeof handlerFn === 'function') {
         log = handlerFn;
     }
-};
-
-const spawn = (command, args) => {
-    const status = child_process.spawnSync(command, args, process.stdout ? {stdio: 'inherit'} : undefined);
-    if (!process.stdout && Buffer.isBuffer(status.output)) {
-        log(status.output.toString());
-    }
-    return status;
 };
