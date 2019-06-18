@@ -24,7 +24,7 @@ let log = _ => {};
  */
 export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, wfolder, dest, bundleName, ns}) {
 	let status = {status: 0, error: false};
-	if (packageName && typeof packageName === 'string' && ['string', 'number'].includes(typeof tag)) {		
+	if (packageName && typeof packageName === 'string' && ['string', 'number'].includes(typeof tag)) {
 		tag = String(tag);
 		wfolder = wfolder || packageName;
 		dest = dest || 'dist/';
