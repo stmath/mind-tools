@@ -66,8 +66,8 @@ function bundlePkg(packageName, tag, _ref) {
 		process.chdir(workingFolder);
 
 		var command = _os2.default.platform() === 'win32' ? 'jspm.cmd' : 'jspm';
-		log('Installing ' + packageName);
 		if (!skipInstall) {
+			log('Installing ' + packageName);
 			status = spawn(command, ['install', ns + ':' + packageName + '@' + tag, '-y'], { stdio: "inherit" });
 		}
 		if (!status.error && status.status === 0) {

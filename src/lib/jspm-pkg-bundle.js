@@ -38,8 +38,8 @@ export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, 
 		process.chdir(workingFolder);
 
 		const command = (os.platform() === 'win32') ? 'jspm.cmd' : 'jspm';
-		log(`Installing ${packageName}`);
 		if (!skipInstall) {
+			log(`Installing ${packageName}`);
 			status = spawn(command, ['install', `${ns}:${packageName}@${tag}`, '-y'], {stdio: "inherit"});
 		}
 		if (!status.error && status.status === 0) {
