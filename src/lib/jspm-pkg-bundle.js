@@ -2,7 +2,6 @@
 import {mkdir, mv, createPath} from './common/file';
 import child_process from 'child_process';
 import os from 'os';
-const spawn = child_process.spawnSync;
 
 let log = _ => {};
 
@@ -41,7 +40,6 @@ export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, 
 		if (!skipInstall) {
 			log(`Installing ${packageName}`);
 			status = spawn(command, ['install', `${ns}:${packageName}@${tag}`, '-y']);
-			log(status.output.toString());
 		}
 		if (!status.error && status.status === 0) {
 			let extraParams = [];
@@ -55,7 +53,6 @@ export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, 
 			const bundleFileName = `${bundleName}-${tag}.js`;
 			log(`Writing ${bundleFileName}`);
 			status = spawn(command, ['bundle', `${packageName}/*`, bundleFileName].concat(extraParams));
-			log(status.output.toString());
 			if (!status.error && status.status === 0) {
 				process.chdir(baseFolder);
 				mkdir(createPath(dest));
@@ -81,4 +78,12 @@ export const setLogHandler = handlerFn => {
     if (typeof handlerFn === 'function') {
         log = handlerFn;
     }
+};
+
+const spawn = (command, args) => {
+    const status = child_process.spawnSync(command, args, process.stdout ? {stdio: 'inherit'} : undefined);
+    if (!process.stdout && Buffer.isBuffer(status.output)) {
+        log(status.output.toString());
+    }
+    return status;
 };
