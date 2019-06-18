@@ -40,7 +40,8 @@ export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, 
 		const command = (os.platform() === 'win32') ? 'jspm.cmd' : 'jspm';
 		if (!skipInstall) {
 			log(`Installing ${packageName}`);
-			status = spawn(command, ['install', `${ns}:${packageName}@${tag}`, '-y'], {stdio: "inherit"});
+			status = spawn(command, ['install', `${ns}:${packageName}@${tag}`, '-y']);
+			log(status.output.toString());
 		}
 		if (!status.error && status.status === 0) {
 			let extraParams = [];
@@ -53,7 +54,8 @@ export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, 
 			log('Bundling.');
 			const bundleFileName = `${bundleName}-${tag}.js`;
 			log(`Writing ${bundleFileName}`);
-			status = spawn(command, ['bundle', `${packageName}/*`, bundleFileName].concat(extraParams), {stdio: "inherit"});
+			status = spawn(command, ['bundle', `${packageName}/*`, bundleFileName].concat(extraParams));
+			log(status.output.toString());
 			if (!status.error && status.status === 0) {
 				process.chdir(baseFolder);
 				mkdir(createPath(dest));
