@@ -25,7 +25,7 @@ let log = _ => {};
 export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, wfolder, dest, bundleName, ns}) {
 	let status = {status: 0, error: false};
 	if (!checkJspm()) {
-		log('Need jspm installed globally: npm install -g jspm. Or npm install -g jspm@0.16.52');
+		log('Need jspm installed globally: npm install -g jspm.');
 		status = {error: true, status: 1};
 	} else if (typeof packageName === 'string' && ['string', 'number'].includes(typeof tag)) {
 		tag = String(tag);

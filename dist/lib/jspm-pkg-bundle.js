@@ -52,7 +52,7 @@ function bundlePkg(packageName, tag, _ref) {
 
 	var status = { status: 0, error: false };
 	if (!checkJspm()) {
-		log('Need jspm installed globally: npm install -g jspm. Or npm install -g jspm@0.16.52');
+		log('Need jspm installed globally: npm install -g jspm.');
 		status = { error: true, status: 1 };
 	} else if (typeof packageName === 'string' && ['string', 'number'].includes(typeof tag === 'undefined' ? 'undefined' : _typeof(tag))) {
 		tag = String(tag);
