@@ -2,7 +2,6 @@
 import {mkdir, mv, createPath} from './common/file';
 import child_process from 'child_process';
 import os from 'os';
-const spawn = child_process.spawnSync;
 
 let log = _ => {};
 
@@ -25,7 +24,10 @@ let log = _ => {};
  */
 export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, wfolder, dest, bundleName, ns}) {
 	let status = {status: 0, error: false};
-	if (packageName && typeof packageName === 'string' && ['string', 'number'].includes(typeof tag)) {
+	if (!checkJspm()) {
+		log('Need jspm installed globally: npm install -g jspm.');
+		status = {error: true, status: 1};
+	} else if (typeof packageName === 'string' && ['string', 'number'].includes(typeof tag)) {
 		tag = String(tag);
 		wfolder = wfolder || packageName;
 		dest = dest || 'dist/';
@@ -37,10 +39,11 @@ export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, 
 		mkdir(workingFolder);
 		process.chdir(workingFolder);
 
+		const spawn = child_process.spawnSync;
 		const command = (os.platform() === 'win32') ? 'jspm.cmd' : 'jspm';
-		log(`Installing ${packageName}`);
 		if (!skipInstall) {
-			status = spawn(command, ['install', `${ns}:${packageName}@${tag}`, '-y'], {stdio: "inherit"});
+			log(`Installing ${packageName}`);
+			status = spawn(command, ['install', `${ns}:${packageName}@${tag}`, '-y'], {stdio: 'inherit'});
 		}
 		if (!status.error && status.status === 0) {
 			let extraParams = [];
@@ -53,7 +56,7 @@ export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, 
 			log('Bundling.');
 			const bundleFileName = `${bundleName}-${tag}.js`;
 			log(`Writing ${bundleFileName}`);
-			status = spawn(command, ['bundle', `${packageName}/*`, bundleFileName].concat(extraParams), {stdio: "inherit"});
+			status = spawn(command, ['bundle', `${packageName}/*`, bundleFileName].concat(extraParams), {stdio: 'inherit'});
 			if (!status.error && status.status === 0) {
 				process.chdir(baseFolder);
 				mkdir(createPath(dest));
@@ -79,4 +82,10 @@ export const setLogHandler = handlerFn => {
     if (typeof handlerFn === 'function') {
         log = handlerFn;
     }
+};
+
+const checkJspm = _ => {
+	const command = os.platform() === 'win32' ? 'jspm.cmd' : 'jspm';
+	const status = child_process.spawnSync(command, ['--version']);
+	return status.output && Buffer.isBuffer(status.output[1]);
 };

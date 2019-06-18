@@ -31,8 +31,12 @@ var bundlePkgOptions = {
 var status = (0, _jspmPkgBundle.bundlePkg)('mind-sdk', options.tag, bundlePkgOptions);
 
 if (status.error) {
-	status.stderr.pipe(process.stderr);
-	status.stdout.pipe(process.stdout);
+	if (status.stderr && status.stderr.pipe) {
+		status.stderr.pipe(process.stderr);
+	}
+	if (status.stdout && status.stdout.pipe) {
+		status.stdout.pipe(process.stdout);
+	}
 	process.exit(status.status || 1);
 } else {
 	process.exit(status.status || 0);

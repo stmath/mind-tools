@@ -22,8 +22,6 @@ var _os2 = _interopRequireDefault(_os);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var spawn = _child_process2.default.spawnSync;
-
 var log = function log(_) {};
 
 /**
@@ -53,7 +51,10 @@ function bundlePkg(packageName, tag, _ref) {
 	    ns = _ref.ns;
 
 	var status = { status: 0, error: false };
-	if (packageName && typeof packageName === 'string' && ['string', 'number'].includes(typeof tag === 'undefined' ? 'undefined' : _typeof(tag))) {
+	if (!checkJspm()) {
+		log('Need jspm installed globally: npm install -g jspm.');
+		status = { error: true, status: 1 };
+	} else if (typeof packageName === 'string' && ['string', 'number'].includes(typeof tag === 'undefined' ? 'undefined' : _typeof(tag))) {
 		tag = String(tag);
 		wfolder = wfolder || packageName;
 		dest = dest || 'dist/';
@@ -65,10 +66,11 @@ function bundlePkg(packageName, tag, _ref) {
 		(0, _file.mkdir)(workingFolder);
 		process.chdir(workingFolder);
 
+		var spawn = _child_process2.default.spawnSync;
 		var command = _os2.default.platform() === 'win32' ? 'jspm.cmd' : 'jspm';
-		log('Installing ' + packageName);
 		if (!skipInstall) {
-			status = spawn(command, ['install', ns + ':' + packageName + '@' + tag, '-y'], { stdio: "inherit" });
+			log('Installing ' + packageName);
+			status = spawn(command, ['install', ns + ':' + packageName + '@' + tag, '-y'], { stdio: 'inherit' });
 		}
 		if (!status.error && status.status === 0) {
 			var extraParams = [];
@@ -81,7 +83,7 @@ function bundlePkg(packageName, tag, _ref) {
 			log('Bundling.');
 			var bundleFileName = bundleName + '-' + tag + '.js';
 			log('Writing ' + bundleFileName);
-			status = spawn(command, ['bundle', packageName + '/*', bundleFileName].concat(extraParams), { stdio: "inherit" });
+			status = spawn(command, ['bundle', packageName + '/*', bundleFileName].concat(extraParams), { stdio: 'inherit' });
 			if (!status.error && status.status === 0) {
 				process.chdir(baseFolder);
 				(0, _file.mkdir)((0, _file.createPath)(dest));
@@ -107,4 +109,10 @@ var setLogHandler = exports.setLogHandler = function setLogHandler(handlerFn) {
 	if (typeof handlerFn === 'function') {
 		log = handlerFn;
 	}
+};
+
+var checkJspm = function checkJspm(_) {
+	var command = _os2.default.platform() === 'win32' ? 'jspm.cmd' : 'jspm';
+	var status = _child_process2.default.spawnSync(command, ['--version']);
+	return status.output && Buffer.isBuffer(status.output[1]);
 };
