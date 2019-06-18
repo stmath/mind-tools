@@ -51,7 +51,10 @@ function bundlePkg(packageName, tag, _ref) {
 	    ns = _ref.ns;
 
 	var status = { status: 0, error: false };
-	if (packageName && typeof packageName === 'string' && ['string', 'number'].includes(typeof tag === 'undefined' ? 'undefined' : _typeof(tag))) {
+	if (!checkJspm()) {
+		log('Need jspm installed globally: npm install -g jspm. Or npm install -g jspm@0.16.52');
+		status = { error: true, status: 1 };
+	} else if (typeof packageName === 'string' && ['string', 'number'].includes(typeof tag === 'undefined' ? 'undefined' : _typeof(tag))) {
 		tag = String(tag);
 		wfolder = wfolder || packageName;
 		dest = dest || 'dist/';
@@ -106,4 +109,10 @@ var setLogHandler = exports.setLogHandler = function setLogHandler(handlerFn) {
 	if (typeof handlerFn === 'function') {
 		log = handlerFn;
 	}
+};
+
+var checkJspm = function checkJspm(_) {
+	var command = _os2.default.platform() === 'win32' ? 'jspm.cmd' : 'jspm';
+	var status = _child_process2.default.spawnSync(command, ['--version']);
+	return status.output && Buffer.isBuffer(status.output[1]);
 };

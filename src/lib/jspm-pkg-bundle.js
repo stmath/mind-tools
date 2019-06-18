@@ -24,7 +24,10 @@ let log = _ => {};
  */
 export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, wfolder, dest, bundleName, ns}) {
 	let status = {status: 0, error: false};
-	if (packageName && typeof packageName === 'string' && ['string', 'number'].includes(typeof tag)) {
+	if (!checkJspm()) {
+		log('Need jspm installed globally: npm install -g jspm. Or npm install -g jspm@0.16.52');
+		status = {error: true, status: 1};
+	} else if (typeof packageName === 'string' && ['string', 'number'].includes(typeof tag)) {
 		tag = String(tag);
 		wfolder = wfolder || packageName;
 		dest = dest || 'dist/';
@@ -79,4 +82,10 @@ export const setLogHandler = handlerFn => {
     if (typeof handlerFn === 'function') {
         log = handlerFn;
     }
+};
+
+const checkJspm = _ => {
+	const command = os.platform() === 'win32' ? 'jspm.cmd' : 'jspm';
+	const status = child_process.spawnSync(command, ['--version']);
+	return status.output && Buffer.isBuffer(status.output[1]);
 };
