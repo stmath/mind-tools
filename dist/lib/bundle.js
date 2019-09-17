@@ -86,7 +86,15 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
             var modulePath = (0, _file.createPath)(workingDirectory, name, name);
             logFn('Executing: jspm bundle ' + modulePath + ' - mind-sdk/**/* ' + name + '.js.');
             logFn('Writing bundle ./' + name + '.js');
-            var res = spawn(command, ['bundle', modulePath + ' - mind-sdk/**/*', dest + name + '.js'], { stdio: "inherit" });
+
+            var bundleCommand = modulePath + ' - mind-sdk/**/* ';
+            var useComponentBundles = getPackageJsonField('mind.useComponentBundles');
+            if (useComponentBundles) {
+                bundleCommand = bundleCommand + ' - mind-game-components/**/* ';
+                logFn('Writing bundle without components');
+            }
+
+            var res = spawn(command, ['bundle', bundleCommand, dest + name + '.js'], { stdio: "inherit" });
             if (!res.error && res.status === 0) {
                 logFn('Writing manifest ./manifest.json');
                 writeManifest(name, modulePath, version, dest, hash);
@@ -170,6 +178,8 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash) 
     var testHarnessOptions = getPackageJsonField('mind.testHarnessOptions');
     var overrides = getPackageJsonField('mind.overrides');
     var buildDate = (0, _momentTimezone2.default)().tz('America/Los_Angeles').format();
+    var componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
+    var useComponentBundles = getPackageJsonField('mind.useComponentBundles');
     var manifest = {
         'module': name,
         'arenaKey': arenakey,
@@ -196,6 +206,9 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash) 
     }
     if (overrides) {
         manifest.overrides = overrides;
+    }
+    if (useComponentBundles) {
+        manifest.componentsConfigUrl = '/pilot/components/' + componentVersion + '/ComponentsConfig.json';
     }
 
     try {
