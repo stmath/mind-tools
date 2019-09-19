@@ -13,7 +13,7 @@ var _commandLineArgs2 = _interopRequireDefault(_commandLineArgs);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var optionDefinitions = [{ name: 'upload', alias: 'u', type: String }, { name: 'dest', alias: 'd', type: String, defaultValue: 'components/' }, { name: 'version', type: String }, { name: 'noMinify', type: Boolean, defaultValue: true }, { name: 'sourceMap', type: Boolean, defaultValue: false }];
+var optionDefinitions = [{ name: 'upload', alias: 'u', type: String }, { name: 'dest', alias: 'd', type: String, defaultValue: 'components/' }, { name: 'version', type: String }, { name: 'tag', type: Boolean }];
 
 var options = (0, _commandLineArgs2.default)(optionDefinitions);
 var log = console.log;

@@ -8,8 +8,7 @@ const optionDefinitions = [
 	{ name: 'upload', alias: 'u', type: String },
 	{ name: 'dest', alias: 'd', type: String, defaultValue: 'components/' },
 	{ name: 'version', type: String },
-	{ name: 'noMinify', type: Boolean, defaultValue: true},
-	{ name: 'sourceMap', type: Boolean, defaultValue: false}
+	{ name: 'tag', type: Boolean},
 ];
 
 const options = commandLineArgs(optionDefinitions);
