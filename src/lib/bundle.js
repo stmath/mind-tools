@@ -5,6 +5,7 @@ import os from 'os';
 import {getJsonFile, createPath, mkdir} from './common/file';
 import {upload} from './s3';
 import moment from 'moment-timezone';
+import path from 'path';
 
 /**
  * Bundle assets defined in mind.bundle-assets.assets = [] & mind.bundle-assets.output = ''
@@ -82,6 +83,124 @@ export const bundleGame = (version, dest, hash) => {
 };
 
 /**
+ * Used for mind-game-components repo. Bundle each available component and its assets
+ * @param {String} version the string to apply to the compiled version of these bundles
+ */
+export const bundleComponents = (version) => {
+    let success = true;
+    // determine all the components that can be bundled from this repo
+    const componentsToBundle = getPackageJsonField('mind.componentBundles');
+    // define properties that will be re-used for each component bundle process
+    const spawn = child_process.spawnSync;
+    const command = (os.platform() === 'win32') ? 'jspm.cmd' : 'jspm';
+    const subSDK = ' - mind-sdk/**/* ';
+    // Setup iteration over all components that will be bundled
+    let componentNames = Object.keys(componentsToBundle);
+    let bundledAssets = [];
+    for (let iter = 0; iter < componentNames.length; iter++) {
+        let name = componentNames[iter];
+        let componentInfo = componentsToBundle[name];
+        logFn('Bundling component: ' + name);
+        // generate properties used by the bundling command
+        const plusBundle = (componentInfo.plus) ? ` + ${componentInfo.plus} ` : '';             // use if a component bundle requires an extra dependency
+        const modulePath = componentInfo.dist;                                                  // the location of the code that will be compiled
+        const bundleCommand = `${modulePath} ${subSDK} ${plusBundle}`                           // composite command for bundling the component
+        const bundleResult = `components/${version}/${componentInfo.bundleRoot}${name}.js`;     // target file/directory for the component bundle
+        // apply extra parameters to the bundle call as necessary
+        // TODO: determine if extra params are appropriate
+        let extraParams = [];
+        extraParams.push('--inject');
+        // perform the bundle command
+        const res = spawn(command, ['bundle', bundleCommand, bundleResult].concat(extraParams), {stdio: "inherit"});
+        // check the result of the bundling
+        if (!res.error && res.status === 0) {
+            logFn(`Bundled component to: ${bundleResult}`);
+        } else {
+            // if there was an error, break from the bundling loop
+            logFn(`Error writing bundle: ${bundleResult}`);
+            success = false;
+            break;
+        }
+        // bundle the assets that are related to this component as signified by properties in the package.json
+        let assetBundle = bundleComponentAssets(componentInfo, version);
+        if (assetBundle) bundledAssets.push(assetBundle);
+    }
+    // if every component bundled properly, then generate a json that holds neede configuration info
+    if (success) writeComponentConfig(version, bundledAssets);
+    // return the result of the component bundling
+    return success;
+};
+
+const bundleComponentAssets = (componentInfo, version) => {
+    // check if this component requires asset bundling
+    let assetsSrc = componentInfo.assets;
+    if (!assetsSrc) return;
+    // define the path from which the assets will be bundled
+    let relativeSrc = componentInfo.src;
+    let assetsDirectory = path.resolve(relativeSrc);
+    // define where the bundled assets will be stored
+    const bundleDir = path.resolve(`./components/${version}/${componentInfo.bundleRoot}`);
+    const bundleName = `${bundleDir}/${componentInfo.name}.tar`;
+    logFn('Bundling assets: ' + bundleName);
+    // call to nectar to bundle the assets
+    nectar(assetsSrc, bundleName, {cwd: assetsDirectory})
+    // return a JSON with info about this asset bundle in a JSON that will be used when the componentConfig is written
+    return {
+        name: componentInfo.name,
+        relativePath: componentInfo.relativeAssetPath
+    };
+};
+
+const writeComponentConfig = (version, bundledAssets) => {
+    let componentMappingJSON = compileAssetMappingJSON(bundledAssets);            
+    let compositeJSON = JSON.stringify(componentMappingJSON);   
+    let bundlesStr = extractBundlesFromConfig();
+    // compose the bundleJSONStr - and ready it to be written into the componentsConfig.json file
+    let bundleJSONStr = `{
+        "componentSettings": ${compositeJSON},
+        "systemJSConfig": {
+            "paths": {
+                "components/*": "${DEFAULTS.s3folder}/components/*"
+            },
+            ${bundlesStr}
+        }
+    }`;
+
+    FS.writeFileSync(`components/${version}/ComponentsConfig.json`, bundleJSONStr, function(err) {});
+}
+
+const extractBundlesFromConfig = () => {
+    // This function will read the config.js for the components and extract the "bundles" property that was created via the --inject command
+    let filePath = path.join("./", 'config.js');
+    let data = FS.readFileSync(filePath, {encoding: 'utf-8'} );
+    let bundleIdx = data.indexOf('bundles: {');
+    let subStr = data.slice(bundleIdx);
+    let endIdx = subStr.indexOf('}');
+    let bundlesStr = data.slice(bundleIdx - 1, bundleIdx + endIdx + 1);
+    return bundlesStr.replace('bundles', '"bundles"');
+}
+
+/**
+ * Generate a JSON with property - "assetSettings" that is defined by a set of properties that maps
+ * a given component bundle to a relative asset url for the component's bundled assets
+ * Note: This mapping is stored in the package.json
+ * @param {*} bundledAssets An array of Object that include component name and relative source for component assets
+ */
+const compileAssetMappingJSON = (bundledAssets) => {
+    let assetMapping = {};
+    for(let i = 0; i < bundledAssets.length; i++) {
+        let assetInfo = bundledAssets[i];
+        assetMapping[assetInfo.name] = {
+            relativePath: assetInfo.relativePath
+        };
+    }
+    // return the object for assetSettings that will be read while unbundling component assets
+    return {
+        assetSettings: assetMapping
+    };
+}
+
+/**
  * Set log function. E.g: console.log
  *
  * @param {object<function>} handlerFn: Function.
@@ -110,7 +229,7 @@ export const uploadBundle = (version, bundleName = undefined) => {
         const bundleKey = createPath(s3folder, bundleName, version, `${bundleName}.js`);
         const manifestKey = createPath(s3folder, bundleName, version, 'manifest.json');
 
-        logFn(`Uploading bundlet to S3: bucket: ${s3bucket}, key: ${bundleKey}`);
+        logFn(`Uploading bundle to S3: bucket: ${s3bucket}, key: ${bundleKey}`);
         promise = upload(`${bundleName}.js`, bundleKey, s3bucket)
             .then(success => {
                 logFn(`Uploading manifest to S3: bucket: ${s3bucket}, key: ${manifestKey}`);

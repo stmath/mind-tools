@@ -25,7 +25,8 @@
     "mindbuild": "./dist/mindbuild.js",
     "svgoptimizer": "./dist/svgoptimizer.js",
     "api-client-bundle": "./dist/api-client-bundle.js",
-    "sdk-bundle": "./dist/sdk-bundle.js"
+    "sdk-bundle": "./dist/sdk-bundle.js",
+    "component-bundle": "./dist/component-bundle.js"
   },
   "dependencies": {
     "aws-sdk": "^2.341.0",

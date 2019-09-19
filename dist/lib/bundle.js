@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
-exports.getBundleName = exports.uploadBundle = exports.setLogHandler = exports.bundleGame = exports.bundleAssets = undefined;
+exports.getBundleName = exports.uploadBundle = exports.setLogHandler = exports.bundleComponents = exports.bundleGame = exports.bundleAssets = undefined;
 
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
 
@@ -30,6 +30,10 @@ var _s2 = require('./s3');
 var _momentTimezone = require('moment-timezone');
 
 var _momentTimezone2 = _interopRequireDefault(_momentTimezone);
+
+var _path = require('path');
+
+var _path2 = _interopRequireDefault(_path);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -111,6 +115,117 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
     return ret;
 };
 
+var bundleComponents = exports.bundleComponents = function bundleComponents(version, _ref) {
+    var _ref$noMinify = _ref.noMinify,
+        noMinify = _ref$noMinify === undefined ? true : _ref$noMinify,
+        _ref$sourceMap = _ref.sourceMap,
+        sourceMap = _ref$sourceMap === undefined ? true : _ref$sourceMap;
+
+    var success = true;
+    // determine all the components that can be bundled from this repo
+    var componentsToBundle = getPackageJsonField('mind.componentBundles');
+    // define properties that will be re-used for each component bundle process
+    var spawn = _child_process2.default.spawnSync;
+    var command = _os2.default.platform() === 'win32' ? 'jspm.cmd' : 'jspm';
+    var subSDK = ' - mind-sdk/**/* ';
+    // Setup iteration over all components that will be bundled
+    var componentNames = Object.keys(componentsToBundle);
+    var bundledAssets = [];
+    for (var iter = 0; iter < componentNames.length; iter++) {
+        var name = componentNames[iter];
+        var componentInfo = componentsToBundle[name];
+        logFn('Bundling component: ' + name);
+        // generate properties used by the bundling command
+        var plusBundle = componentInfo.plus ? ' + ' + componentInfo.plus + ' ' : ''; // use if a component bundle requires an extra dependency
+        var modulePath = componentInfo.dist; // the location of the code that will be compiled
+        var bundleCommand = modulePath + ' ' + subSDK + ' ' + plusBundle; // composite command for bundling the component
+        var bundleResult = 'components/' + version + '/' + componentInfo.bundleRoot + name + '.js'; // target file/directory for the component bundle
+        // apply extra parameters to the bundle call as necessary
+        // TODO: determine if extra params are appropriate
+        var extraParams = [];
+        extraParams.push('--inject');
+        // perform the bundle command
+        var res = spawn(command, ['bundle', bundleCommand, bundleResult].concat(extraParams), { stdio: "inherit" });
+        // check the result of the bundling
+        if (!res.error && res.status === 0) {
+            logFn('Bundled component to: ' + bundleResult);
+        } else {
+            // if there was an error, break from the bundling loop
+            logFn('Error writing bundle: ' + bundleResult);
+            success = false;
+            break;
+        }
+        // bundle the assets that are related to this component as signified by properties in the package.json
+        var assetBundle = bundleComponentAssets(componentInfo, version);
+        if (assetBundle) bundledAssets.push(assetBundle);
+    }
+    // if every component bundled properly, then generate a json that holds neede configuration info
+    if (success) writeComponentConfig(version, bundledAssets);
+    // return the result of the component bundling
+    return success;
+};
+
+var bundleComponentAssets = function bundleComponentAssets(componentInfo, version) {
+    // check if this component requires asset bundling
+    var assetsSrc = componentInfo.assets;
+    if (!assetsSrc) return;
+    // define the path from which the assets will be bundled
+    var relativeSrc = componentInfo.src;
+    var assetsDirectory = _path2.default.resolve(relativeSrc);
+    // define where the bundled assets will be stored
+    var bundleDir = _path2.default.resolve('./components/' + version + '/' + componentInfo.bundleRoot);
+    var bundleName = bundleDir + '/' + componentInfo.name + '.tar';
+    logFn('Bundling assets: ' + bundleName);
+    // call to nectar to bundle the assets
+    (0, _nectar2.default)(assetsSrc, bundleName, { cwd: assetsDirectory });
+    // return a JSON with info about this asset bundle in a JSON that will be used when the componentConfig is written
+    return {
+        name: componentInfo.name,
+        relativePath: componentInfo.relativeAssetPath
+    };
+};
+
+var writeComponentConfig = function writeComponentConfig(version, bundledAssets) {
+    var componentMappingJSON = compileAssetMappingJSON(bundledAssets);
+    var compositeJSON = JSON.stringify(componentMappingJSON);
+    var bundlesStr = extractBundlesFromConfig();
+    // compose the bundleJSONStr - and ready it to be written into the componentsConfig.json file
+    var bundleJSONStr = '{\n        "componentSettings": ' + compositeJSON + ',\n        "systemJSConfig": {\n            "paths": {\n                "components/*": "' + DEFAULTS.s3folder + '/components/*"\n            },\n            ' + bundlesStr + '\n        }\n    }';
+
+    _fs2.default.writeFileSync('components/' + version + '/ComponentsConfig.json', bundleJSONStr, function (err) {});
+};
+
+var extractBundlesFromConfig = function extractBundlesFromConfig() {
+    // This function will read the config.js for the components and extract the "bundles" property that was created via the --inject command
+    var filePath = _path2.default.join("./", 'config.js');
+    var data = _fs2.default.readFileSync(filePath, { encoding: 'utf-8' });
+    var bundleIdx = data.indexOf('bundles: {');
+    var subStr = data.slice(bundleIdx);
+    var endIdx = subStr.indexOf('}');
+    var bundlesStr = data.slice(bundleIdx - 1, bundleIdx + endIdx + 1);
+    return bundlesStr.replace('bundles', '"bundles"');
+};
+
+/**
+ * Generate a JSON with property - "assetSettings" that is defined by a set of properties that maps
+ * a given component bundle to a relative asset url for the component's bundled assets
+ * Note: This mapping is stored in the package.json
+ * @param {*} bundledAssets An array of Object that include component name and relative source for component assets
+ */
+var compileAssetMappingJSON = function compileAssetMappingJSON(bundledAssets) {
+    var assetMapping = {};
+    for (var i = 0; i < bundledAssets.length; i++) {
+        var assetInfo = bundledAssets[i];
+        assetMapping[assetInfo.name] = {
+            relativePath: assetInfo.relativePath
+        };
+    }
+    // return the object for assetSettings that will be read while unbundling component assets
+    return {
+        assetSettings: assetMapping
+    };
+};
+
 /**
  * Set log function. E.g: console.log
  *
@@ -143,7 +258,7 @@ var uploadBundle = exports.uploadBundle = function uploadBundle(version) {
         var bundleKey = (0, _file.createPath)(s3folder, bundleName, version, bundleName + '.js');
         var manifestKey = (0, _file.createPath)(s3folder, bundleName, version, 'manifest.json');
 
-        logFn('Uploading bundlet to S3: bucket: ' + s3bucket + ', key: ' + bundleKey);
+        logFn('Uploading bundle to S3: bucket: ' + s3bucket + ', key: ' + bundleKey);
         promise = (0, _s2.upload)(bundleName + '.js', bundleKey, s3bucket).then(function (success) {
             logFn('Uploading manifest to S3: bucket: ' + s3bucket + ', key: ' + manifestKey);
             if (success) {
@@ -228,6 +343,7 @@ var getPackageJsonField = function getPackageJsonField(field) {
             retObj = retObj && retObj[p];
         });
     }
+    logFn('retObj: ' + retObj);
     return retObj;
 };
 
