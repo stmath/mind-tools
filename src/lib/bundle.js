@@ -90,6 +90,7 @@ export const bundleComponents = (version) => {
     let success = true;
     // determine all the components that can be bundled from this repo
     const componentsToBundle = getPackageJsonField('mind.componentBundles');
+    const bundleRoot = getPackageJsonField('mind.bundleRoot');
     // define properties that will be re-used for each component bundle process
     const spawn = child_process.spawnSync;
     const command = (os.platform() === 'win32') ? 'jspm.cmd' : 'jspm';
@@ -105,7 +106,7 @@ export const bundleComponents = (version) => {
         const plusBundle = (componentInfo.plus) ? ` + ${componentInfo.plus} ` : '';             // use if a component bundle requires an extra dependency
         const modulePath = componentInfo.dist;                                                  // the location of the code that will be compiled
         const bundleCommand = `${modulePath} ${subSDK} ${plusBundle}`                           // composite command for bundling the component
-        const bundleResult = `components/${version}/${componentInfo.bundleRoot}${name}.js`;     // target file/directory for the component bundle
+        const bundleResult = createPath(bundleRoot, version, componentInfo.bundleRoot, `${name}.js`);
         // apply extra parameters to the bundle call as necessary
         // TODO: determine if extra params are appropriate
         let extraParams = [];
@@ -139,8 +140,9 @@ const bundleComponentAssets = (componentInfo, version) => {
     let relativeSrc = componentInfo.src;
     let assetsDirectory = path.resolve(relativeSrc);
     // define where the bundled assets will be stored
-    const bundleDir = path.resolve(`./components/${version}/${componentInfo.bundleRoot}`);
-    const bundleName = `${bundleDir}/${componentInfo.name}.tar`;
+    const bundleRoot = getPackageJsonField('mind.bundleRoot');
+    const bundlePath = createPath(bundleRoot, version, componentInfo.bundleRoot, `${componentInfo.name}.tar`);
+    const bundleName = path.resolve(`./${bundlePath}`);
     logFn('Bundling assets: ' + bundleName);
     // call to nectar to bundle the assets
     nectar(assetsSrc, bundleName, {cwd: assetsDirectory})
@@ -160,13 +162,16 @@ const writeComponentConfig = (version, bundledAssets) => {
         "componentSettings": ${compositeJSON},
         "systemJSConfig": {
             "paths": {
-                "components/*": "${DEFAULTS.s3folder}/components/*"
+                "components/*": ".${DEFAULTS.s3folder}/components/*"
             },
             ${bundlesStr}
         }
     }`;
 
-    FS.writeFileSync(`components/${version}/ComponentsConfig.json`, bundleJSONStr, function(err) {});
+    let bundleRoot = getPackageJsonField('mind.bundleRoot');
+    let configName = getPackageJsonField('mind.configName');
+    let path = createPath(bundleRoot, version, configName);
+    FS.writeFileSync(path, bundleJSONStr);
 }
 
 const extractBundlesFromConfig = () => {
@@ -178,6 +183,47 @@ const extractBundlesFromConfig = () => {
     let endIdx = subStr.indexOf('}');
     let bundlesStr = data.slice(bundleIdx - 1, bundleIdx + endIdx + 1);
     return bundlesStr.replace('bundles', '"bundles"');
+}
+
+export const uploadBundleComponents = (version) => {
+    let promise;
+    let uploadPromises = [];
+    // determine all the components that can be bundled from this repo
+    const componentsToBundle = getPackageJsonField('mind.componentBundles');
+    // define properties that will be re-used for each component bundle process
+    let [s3folder, s3bucket] = [getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder, getPackageJsonField('mind.aws.s3bucket') || DEFAULTS.s3bucket];
+    // define the root folder of the components bundles within the s3 bucket
+    let componentRoot = 'components/'
+    // get the properties for the config on the component bundles
+    let configName = getPackageJsonField('mind.configName');
+    let configPath = createPath(componentRoot, version, configName);
+    let targetConfigPath = createPath(s3folder, componentRoot, version, configName);
+    // attempt to upload the config json to s3
+    let configJSONPromise = upload(configPath, targetConfigPath, s3bucket)
+    uploadPromises.push(configJSONPromise);
+
+    // Setup iteration over all components that will be bundled
+    let componentNames = Object.keys(componentsToBundle);
+    for (let iter = 0; iter < componentNames.length; iter++) {
+        let bundleName = componentNames[iter];
+        let componentInfo = componentsToBundle[bundleName];
+        // generate the path to store the js and tar file for the components
+        const bundleKey = createPath(s3folder, componentRoot, version, componentInfo.bundleRoot, `${bundleName}.js`);
+        // send the component's bundle js file up
+        const bundlePath = createPath(componentRoot, version, componentInfo.bundleRoot, `${bundleName}.js`);
+        promise = upload(bundlePath, bundleKey, s3bucket)
+        .then(success => {
+            if (success) {
+                let assetsSrc = componentInfo.assets;
+                if (assetsSrc) {
+                    const tarKey = createPath(s3folder, componentRoot, version, componentInfo.bundleRoot, `${bundleName}.tar`);
+                    return upload(`${bundleName}.tar`, tarKey, s3bucket);
+                }
+            }
+        });
+        uploadPromises.push(promise);
+    }
+    return Promise.all(uploadPromises);
 }
 
 /**

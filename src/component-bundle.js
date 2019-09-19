@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-import {bundleComponents, setLogHandler} from './lib/bundle';
+import {bundleComponents, uploadBundleComponents, setLogHandler} from './lib/bundle';
 import {addTag} from './lib/git';
 import {mkdir} from './lib/common/file';
 import commandLineArgs from 'command-line-args';
 
 const optionDefinitions = [
-	{ name: 'upload', alias: 'u', type: String },
+	{ name: 'upload', alias: 'u', type: Boolean },
 	{ name: 'dest', alias: 'd', type: String, defaultValue: 'components/' },
 	{ name: 'version', type: String },
 	{ name: 'tag', type: Boolean},
@@ -22,7 +22,7 @@ let success = bundleComponents(version, {sourceMap: options.sourceMap, noMinify:
 if (!success) new Error('Error while bundling Components.');
 if (options.upload) {
 	log('Upload bundle: ' + version);
-	uploadBundle(version);
+	uploadBundleComponents(version);
 }
 if (options.tag) {
 	log(`Tagging git branch with version: ${version}`);
