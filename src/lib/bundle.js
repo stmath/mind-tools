@@ -335,7 +335,7 @@ const writeManifest = (name, arenakey, version, dest, hash) => {
         manifest.overrides = overrides;
     }
     if (useComponentBundles) {
-        manifest.componentsConfigUrl = `/pilot/components/${componentVersion}/ComponentsConfig.json`;
+        manifest.componentsConfigUrl = `${DEFAULTS.s3folder}/components/${componentVersion}/ComponentsConfig.json`;
     }
 
     try {
