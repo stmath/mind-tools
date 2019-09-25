@@ -140,8 +140,9 @@ const bundleComponentAssets = (componentInfo, version) => {
     let relativeSrc = componentInfo.src;
     let assetsDirectory = path.resolve(relativeSrc);
     // define where the bundled assets will be stored
-    const bundleRoot = getPackageJsonField('mind.bundleRoot');
-    const bundlePath = createPath(bundleRoot, version, componentInfo.bundleRoot, `${componentInfo.name}.tar`);
+    const componentsDir = getPackageJsonField('mind.bundleRoot');
+    const bundleDir =  createPath(componentsDir, version, componentInfo.bundleRoot);   // should be 'components/{version}/{componentName}/'
+    const bundlePath = createPath(bundleDir, `${componentInfo.name}.tar`);
     const bundleName = path.resolve(`./${bundlePath}`);
     logFn('Bundling assets: ' + bundleName);
     // call to nectar to bundle the assets
@@ -149,7 +150,8 @@ const bundleComponentAssets = (componentInfo, version) => {
     // return a JSON with info about this asset bundle in a JSON that will be used when the componentConfig is written
     return {
         name: componentInfo.name,
-        relativePath: componentInfo.relativeAssetPath
+        relativePath: componentInfo.relativeAssetPath,
+        bundleRoot: `/${bundleDir}`
     };
 };
 
@@ -237,7 +239,8 @@ const compileAssetMappingJSON = (bundledAssets) => {
     for(let i = 0; i < bundledAssets.length; i++) {
         let assetInfo = bundledAssets[i];
         assetMapping[assetInfo.name] = {
-            relativePath: assetInfo.relativePath
+            relativePath: assetInfo.relativePath,
+            bundleRoot: assetInfo.bundleRoot
         };
     }
     // return the object for assetSettings that will be read while unbundling component assets
