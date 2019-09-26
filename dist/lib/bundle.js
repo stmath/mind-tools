@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
-exports.getBundleName = exports.uploadBundle = exports.setLogHandler = exports.bundleGame = exports.bundleAssets = undefined;
+exports.getBundleName = exports.uploadBundle = exports.setLogHandler = exports.uploadBundleComponents = exports.bundleComponents = exports.bundleGame = exports.bundleAssets = undefined;
 
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
 
@@ -30,6 +30,10 @@ var _s2 = require('./s3');
 var _momentTimezone = require('moment-timezone');
 
 var _momentTimezone2 = _interopRequireDefault(_momentTimezone);
+
+var _path = require('path');
+
+var _path2 = _interopRequireDefault(_path);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -86,7 +90,15 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
             var modulePath = (0, _file.createPath)(workingDirectory, name, name);
             logFn('Executing: jspm bundle ' + modulePath + ' - mind-sdk/**/* ' + name + '.js.');
             logFn('Writing bundle ./' + name + '.js');
-            var res = spawn(command, ['bundle', modulePath + ' - mind-sdk/**/*', dest + name + '.js'], { stdio: "inherit" });
+
+            var bundleCommand = modulePath + ' - mind-sdk/**/* ';
+            var useComponentBundles = getPackageJsonField('mind.useComponentBundles');
+            if (useComponentBundles) {
+                bundleCommand = bundleCommand + ' - mind-game-components/**/* ';
+                logFn('Writing bundle without components');
+            }
+
+            var res = spawn(command, ['bundle', bundleCommand, dest + name + '.js'], { stdio: "inherit" });
             if (!res.error && res.status === 0) {
                 logFn('Writing manifest ./manifest.json');
                 writeManifest(name, modulePath, version, dest, hash);
@@ -101,6 +113,184 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
         logFn('No bundle name (mind.name) found in package.json');
     }
     return ret;
+};
+
+/**
+ * Used for mind-game-components repo. Bundle each available component and its assets
+ * @param {String} version the string to apply to the compiled version of these bundles
+ */
+var bundleComponents = exports.bundleComponents = function bundleComponents(version) {
+    var success = true;
+    // determine all the components that can be bundled from this repo
+    var componentsToBundle = getPackageJsonField('mind.componentBundles');
+    var bundleRoot = getPackageJsonField('mind.bundleRoot');
+    // define properties that will be re-used for each component bundle process
+    var spawn = _child_process2.default.spawnSync;
+    var command = _os2.default.platform() === 'win32' ? 'jspm.cmd' : 'jspm';
+    var subSDK = ' - mind-sdk/**/* ';
+    // Setup iteration over all components that will be bundled
+    var componentNames = Object.keys(componentsToBundle);
+    var bundledAssets = [];
+    var previousComponents = [];
+    for (var iter = 0; iter < componentNames.length; iter++) {
+        var name = componentNames[iter];
+        var componentInfo = componentsToBundle[name];
+        logFn('Bundling component: ' + name);
+        // generate properties used by the bundling command
+        var plusBundle = componentInfo.plus ? ' + ' + componentInfo.plus + ' ' : ''; // use if a component bundle requires an extra dependency
+        var modulePath = componentInfo.dist; // the location of the code that will be compiled
+        // create a string that defines which code should be removed from the component bundling
+        // this can be used to remove some non-component specific code that may exist in the same folder
+        var subtractComponents = '';
+        var libToRemove = componentInfo.sub || [];
+        libToRemove = libToRemove.concat(previousComponents);
+        if (libToRemove) {
+            for (var i = 0; i < libToRemove.length; i++) {
+                subtractComponents += ' - ' + libToRemove[i] + ' ';
+            }
+        }
+        var bundleCommand = modulePath + ' ' + plusBundle + ' ' + subSDK + ' ' + subtractComponents + ' '; // composite command for bundling the component
+        var bundleResult = (0, _file.createPath)(bundleRoot, version, componentInfo.bundleRoot, name + '.js');
+        // apply extra parameters to the bundle call as necessary
+        // TODO: determine if extra params are appropriate
+        var extraParams = [];
+        extraParams.push('--inject');
+        // perform the bundle command
+        var res = spawn(command, ['bundle', bundleCommand, bundleResult].concat(extraParams), { stdio: "inherit" });
+        // check the result of the bundling
+        if (!res.error && res.status === 0) {
+            logFn('Bundled component to: ' + bundleResult);
+        } else {
+            // if there was an error, break from the bundling loop
+            logFn('Error writing bundle: ' + bundleResult);
+            success = false;
+            break;
+        }
+        // bundle the assets that are related to this component as signified by properties in the package.json
+        var assetBundle = bundleComponentAssets(componentInfo, version);
+        if (assetBundle) bundledAssets.push(assetBundle);
+
+        previousComponents.push(bundleResult);
+    }
+    // if every component bundled properly, then generate a json that holds neede configuration info
+    if (success) writeComponentConfig(version, bundledAssets);
+    // return the result of the component bundling
+    return success;
+};
+
+var bundleComponentAssets = function bundleComponentAssets(componentInfo, version) {
+    // check if this component requires asset bundling
+    var assetsSrc = componentInfo.assets;
+    if (!assetsSrc) return;
+    // define the path from which the assets will be bundled
+    var relativeSrc = componentInfo.src;
+    var assetsDirectory = _path2.default.resolve(relativeSrc);
+    // define where the bundled assets will be stored
+    var componentsDir = getPackageJsonField('mind.bundleRoot');
+    var bundleDir = (0, _file.createPath)(componentsDir, version, componentInfo.bundleRoot); // should be 'components/{version}/{componentName}/'
+    var bundlePath = (0, _file.createPath)(bundleDir, componentInfo.name + '.tar');
+    var bundleName = _path2.default.resolve('./' + bundlePath);
+    logFn('Bundling assets: ' + bundleName);
+    // call to nectar to bundle the assets
+    (0, _nectar2.default)(assetsSrc, bundleName, { cwd: assetsDirectory });
+    // return a JSON with info about this asset bundle in a JSON that will be used when the componentConfig is written
+    return {
+        name: componentInfo.name,
+        relativePath: componentInfo.relativeAssetPath,
+        bundleRoot: '/' + bundleDir
+    };
+};
+
+var writeComponentConfig = function writeComponentConfig(version, bundledAssets) {
+    var componentMappingJSON = compileAssetMappingJSON(bundledAssets);
+    var compositeJSON = JSON.stringify(componentMappingJSON);
+    var bundlesStr = extractBundlesFromConfig();
+    // compose the bundleJSONStr - and ready it to be written into the componentsConfig.json file
+    var bundleJSONStr = '{\n        "componentSettings": ' + compositeJSON + ',\n        "systemJSConfig": {\n            ' + bundlesStr + '\n        }\n    }';
+
+    var bundleRoot = getPackageJsonField('mind.bundleRoot');
+    var configName = getPackageJsonField('mind.configName');
+    var path = (0, _file.createPath)(bundleRoot, version, configName);
+    _fs2.default.writeFileSync(path, bundleJSONStr);
+};
+
+var extractBundlesFromConfig = function extractBundlesFromConfig() {
+    // This function will read the config.js for the components and extract the "bundles" property that was created via the --inject command
+    var filePath = _path2.default.join("./", 'config.js');
+    var data = _fs2.default.readFileSync(filePath, { encoding: 'utf-8' });
+    var bundleIdx = data.indexOf('bundles: {');
+    var subStr = data.slice(bundleIdx);
+    var endIdx = subStr.indexOf('}');
+    var bundlesStr = data.slice(bundleIdx - 1, bundleIdx + endIdx + 1);
+    return bundlesStr.replace('bundles', '"bundles"');
+};
+
+var uploadBundleComponents = exports.uploadBundleComponents = function uploadBundleComponents(version) {
+    var promise = void 0;
+    var uploadPromises = [];
+    // determine all the components that can be bundled from this repo
+    var componentsToBundle = getPackageJsonField('mind.componentBundles');
+    // define properties that will be re-used for each component bundle process
+    var s3folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder,
+        s3bucket = getPackageJsonField('mind.aws.s3bucket') || DEFAULTS.s3bucket;
+    // define the root folder of the components bundles within the s3 bucket
+
+    var componentRoot = 'components/';
+    // get the properties for the config on the component bundles
+    var configName = getPackageJsonField('mind.configName');
+    var configPath = (0, _file.createPath)(componentRoot, version, configName);
+    var targetConfigPath = (0, _file.createPath)(s3folder, componentRoot, version, configName);
+    // attempt to upload the config json to s3
+    var configJSONPromise = (0, _s2.upload)(configPath, targetConfigPath, s3bucket);
+    uploadPromises.push(configJSONPromise);
+
+    // Setup iteration over all components that will be bundled
+    var componentNames = Object.keys(componentsToBundle);
+
+    var _loop = function _loop(iter) {
+        var bundleName = componentNames[iter];
+        var componentInfo = componentsToBundle[bundleName];
+        // generate the path to store the js and tar file for the components
+        var bundleKey = (0, _file.createPath)(s3folder, componentRoot, version, componentInfo.bundleRoot, bundleName + '.js');
+        // send the component's bundle js file up
+        var bundlePath = (0, _file.createPath)(componentRoot, version, componentInfo.bundleRoot, bundleName + '.js');
+        promise = (0, _s2.upload)(bundlePath, bundleKey, s3bucket).then(function (success) {
+            if (success) {
+                var assetsSrc = componentInfo.assets;
+                if (assetsSrc) {
+                    var tarKey = (0, _file.createPath)(s3folder, componentRoot, version, componentInfo.bundleRoot, bundleName + '.tar');
+                    return (0, _s2.upload)(bundleName + '.tar', tarKey, s3bucket);
+                }
+            }
+        });
+        uploadPromises.push(promise);
+    };
+
+    for (var iter = 0; iter < componentNames.length; iter++) {
+        _loop(iter);
+    }
+    return Promise.all(uploadPromises);
+};
+
+/**
+ * Generate a JSON with property - "assetSettings" that is defined by a set of properties that maps
+ * a given component bundle to a relative asset url for the component's bundled assets
+ * Note: This mapping is stored in the package.json
+ * @param {*} bundledAssets An array of Object that include component name and relative source for component assets
+ */
+var compileAssetMappingJSON = function compileAssetMappingJSON(bundledAssets) {
+    var assetMapping = {};
+    for (var i = 0; i < bundledAssets.length; i++) {
+        var assetInfo = bundledAssets[i];
+        assetMapping[assetInfo.name] = {
+            relativePath: assetInfo.relativePath,
+            bundleRoot: assetInfo.bundleRoot
+        };
+    }
+    // return the object for assetSettings that will be read while unbundling component assets
+    return {
+        assetSettings: assetMapping
+    };
 };
 
 /**
@@ -135,7 +325,7 @@ var uploadBundle = exports.uploadBundle = function uploadBundle(version) {
         var bundleKey = (0, _file.createPath)(s3folder, bundleName, version, bundleName + '.js');
         var manifestKey = (0, _file.createPath)(s3folder, bundleName, version, 'manifest.json');
 
-        logFn('Uploading bundlet to S3: bucket: ' + s3bucket + ', key: ' + bundleKey);
+        logFn('Uploading bundle to S3: bucket: ' + s3bucket + ', key: ' + bundleKey);
         promise = (0, _s2.upload)(bundleName + '.js', bundleKey, s3bucket).then(function (success) {
             logFn('Uploading manifest to S3: bucket: ' + s3bucket + ', key: ' + manifestKey);
             if (success) {
@@ -170,6 +360,8 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash) 
     var testHarnessOptions = getPackageJsonField('mind.testHarnessOptions');
     var overrides = getPackageJsonField('mind.overrides');
     var buildDate = (0, _momentTimezone2.default)().tz('America/Los_Angeles').format();
+    var componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
+    var useComponentBundles = getPackageJsonField('mind.useComponentBundles');
     var manifest = {
         'module': name,
         'arenaKey': arenakey,
@@ -196,6 +388,9 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash) 
     }
     if (overrides) {
         manifest.overrides = overrides;
+    }
+    if (useComponentBundles) {
+        manifest.componentsConfigUrl = DEFAULTS.s3folder + '/components/' + componentVersion + '/ComponentsConfig.json';
     }
 
     try {

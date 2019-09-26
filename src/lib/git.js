@@ -1,4 +1,12 @@
 import git from 'simple-git';
+import child_process from 'child_process';
+
+export const mostRecentTag = (dir = undefined) => {
+    const command = 'git describe';
+    const exec = child_process.execSync;
+    const description = exec(command);
+    return description;
+}
 
 /**
  * Get all git tags
@@ -9,6 +17,7 @@ import git from 'simple-git';
 export const getTags = (dir = undefined) => {
     return new Promise((resolve, reject) => {
         git(dir).tags((err, tags) => {
+
             if (err) {
                 reject(new Error('No tags finded'));
             } else {
