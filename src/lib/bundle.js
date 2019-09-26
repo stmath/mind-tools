@@ -98,6 +98,7 @@ export const bundleComponents = (version) => {
     // Setup iteration over all components that will be bundled
     let componentNames = Object.keys(componentsToBundle);
     let bundledAssets = [];
+    let previousComponents = [];
     for (let iter = 0; iter < componentNames.length; iter++) {
         let name = componentNames[iter];
         let componentInfo = componentsToBundle[name];
@@ -105,7 +106,17 @@ export const bundleComponents = (version) => {
         // generate properties used by the bundling command
         const plusBundle = (componentInfo.plus) ? ` + ${componentInfo.plus} ` : '';             // use if a component bundle requires an extra dependency
         const modulePath = componentInfo.dist;                                                  // the location of the code that will be compiled
-        const bundleCommand = `${modulePath} ${subSDK} ${plusBundle}`                           // composite command for bundling the component
+        // create a string that defines which code should be removed from the component bundling
+        // this can be used to remove some non-component specific code that may exist in the same folder
+        let subtractComponents = '';
+        let libToRemove = componentInfo.sub || [];
+        libToRemove = libToRemove.concat(previousComponents);
+        if (libToRemove) {
+            for (let i = 0; i < libToRemove.length; i++) {
+                subtractComponents += ` - ${libToRemove[i]} `;
+            }
+        }
+        const bundleCommand = `${modulePath} ${plusBundle} ${subSDK} ${subtractComponents} `                           // composite command for bundling the component
         const bundleResult = createPath(bundleRoot, version, componentInfo.bundleRoot, `${name}.js`);
         // apply extra parameters to the bundle call as necessary
         // TODO: determine if extra params are appropriate
@@ -125,6 +136,9 @@ export const bundleComponents = (version) => {
         // bundle the assets that are related to this component as signified by properties in the package.json
         let assetBundle = bundleComponentAssets(componentInfo, version);
         if (assetBundle) bundledAssets.push(assetBundle);
+
+
+        previousComponents.push(bundleResult);
     }
     // if every component bundled properly, then generate a json that holds neede configuration info
     if (success) writeComponentConfig(version, bundledAssets);
