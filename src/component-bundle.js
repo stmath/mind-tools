@@ -24,7 +24,7 @@ if (!version) {
 }
 log(`Bundling Components to ${options.dest}${version}/`);
 if (version) {
-	let success = bundleComponents(version, {sourceMap: options.sourceMap, noMinify: options.noMinify});
+	let success = bundleComponents(version);
 	if (!success) new Error('Error while bundling Components.');
 }
 else {

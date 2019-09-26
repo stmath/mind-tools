@@ -30,7 +30,7 @@ if (!version) {
 }
 log('Bundling Components to ' + options.dest + version + '/');
 if (version) {
-	var success = (0, _bundle.bundleComponents)(version, { sourceMap: options.sourceMap, noMinify: options.noMinify });
+	var success = (0, _bundle.bundleComponents)(version);
 	if (!success) new Error('Error while bundling Components.');
 } else {
 	new Error('Unable to apply a version.');
