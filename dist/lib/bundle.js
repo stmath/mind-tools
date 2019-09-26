@@ -131,6 +131,7 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
     // Setup iteration over all components that will be bundled
     var componentNames = Object.keys(componentsToBundle);
     var bundledAssets = [];
+    var previousComponents = [];
     for (var iter = 0; iter < componentNames.length; iter++) {
         var name = componentNames[iter];
         var componentInfo = componentsToBundle[name];
@@ -138,7 +139,17 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
         // generate properties used by the bundling command
         var plusBundle = componentInfo.plus ? ' + ' + componentInfo.plus + ' ' : ''; // use if a component bundle requires an extra dependency
         var modulePath = componentInfo.dist; // the location of the code that will be compiled
-        var bundleCommand = modulePath + ' ' + subSDK + ' ' + plusBundle; // composite command for bundling the component
+        // create a string that defines which code should be removed from the component bundling
+        // this can be used to remove some non-component specific code that may exist in the same folder
+        var subtractComponents = '';
+        var libToRemove = componentInfo.sub || [];
+        libToRemove = libToRemove.concat(previousComponents);
+        if (libToRemove) {
+            for (var i = 0; i < libToRemove.length; i++) {
+                subtractComponents += ' - ' + libToRemove[i] + ' ';
+            }
+        }
+        var bundleCommand = modulePath + ' ' + plusBundle + ' ' + subSDK + ' ' + subtractComponents + ' '; // composite command for bundling the component
         var bundleResult = (0, _file.createPath)(bundleRoot, version, componentInfo.bundleRoot, name + '.js');
         // apply extra parameters to the bundle call as necessary
         // TODO: determine if extra params are appropriate
@@ -158,6 +169,8 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
         // bundle the assets that are related to this component as signified by properties in the package.json
         var assetBundle = bundleComponentAssets(componentInfo, version);
         if (assetBundle) bundledAssets.push(assetBundle);
+
+        previousComponents.push(bundleResult);
     }
     // if every component bundled properly, then generate a json that holds neede configuration info
     if (success) writeComponentConfig(version, bundledAssets);
@@ -173,8 +186,9 @@ var bundleComponentAssets = function bundleComponentAssets(componentInfo, versio
     var relativeSrc = componentInfo.src;
     var assetsDirectory = _path2.default.resolve(relativeSrc);
     // define where the bundled assets will be stored
-    var bundleRoot = getPackageJsonField('mind.bundleRoot');
-    var bundlePath = (0, _file.createPath)(bundleRoot, version, componentInfo.bundleRoot, componentInfo.name + '.tar');
+    var componentsDir = getPackageJsonField('mind.bundleRoot');
+    var bundleDir = (0, _file.createPath)(componentsDir, version, componentInfo.bundleRoot); // should be 'components/{version}/{componentName}/'
+    var bundlePath = (0, _file.createPath)(bundleDir, componentInfo.name + '.tar');
     var bundleName = _path2.default.resolve('./' + bundlePath);
     logFn('Bundling assets: ' + bundleName);
     // call to nectar to bundle the assets
@@ -182,7 +196,8 @@ var bundleComponentAssets = function bundleComponentAssets(componentInfo, versio
     // return a JSON with info about this asset bundle in a JSON that will be used when the componentConfig is written
     return {
         name: componentInfo.name,
-        relativePath: componentInfo.relativeAssetPath
+        relativePath: componentInfo.relativeAssetPath,
+        bundleRoot: '/' + bundleDir
     };
 };
 
@@ -191,7 +206,7 @@ var writeComponentConfig = function writeComponentConfig(version, bundledAssets)
     var compositeJSON = JSON.stringify(componentMappingJSON);
     var bundlesStr = extractBundlesFromConfig();
     // compose the bundleJSONStr - and ready it to be written into the componentsConfig.json file
-    var bundleJSONStr = '{\n        "componentSettings": ' + compositeJSON + ',\n        "systemJSConfig": {\n            "paths": {\n                "components/*": ".' + DEFAULTS.s3folder + '/components/*"\n            },\n            ' + bundlesStr + '\n        }\n    }';
+    var bundleJSONStr = '{\n        "componentSettings": ' + compositeJSON + ',\n        "systemJSConfig": {\n            ' + bundlesStr + '\n        }\n    }';
 
     var bundleRoot = getPackageJsonField('mind.bundleRoot');
     var configName = getPackageJsonField('mind.configName');
@@ -225,14 +240,8 @@ var uploadBundleComponents = exports.uploadBundleComponents = function uploadBun
     var configName = getPackageJsonField('mind.configName');
     var configPath = (0, _file.createPath)(componentRoot, version, configName);
     var targetConfigPath = (0, _file.createPath)(s3folder, componentRoot, version, configName);
-    // debug statements
-    logFn('The configName to upload is ' + configPath);
-    logFn('Will try to upload: ' + targetConfigPath);
-    logFn('Would upload to: ' + s3bucket);
     // attempt to upload the config json to s3
-    var configJSONPromise = (0, _s2.upload)(configPath, targetConfigPath, s3bucket).then(function (success) {
-        if (!success) logFn('error sending json file');
-    });
+    var configJSONPromise = (0, _s2.upload)(configPath, targetConfigPath, s3bucket);
     uploadPromises.push(configJSONPromise);
 
     // Setup iteration over all components that will be bundled
@@ -243,25 +252,15 @@ var uploadBundleComponents = exports.uploadBundleComponents = function uploadBun
         var componentInfo = componentsToBundle[bundleName];
         // generate the path to store the js and tar file for the components
         var bundleKey = (0, _file.createPath)(s3folder, componentRoot, version, componentInfo.bundleRoot, bundleName + '.js');
-        logFn('Component Bundle js: ' + bundleKey);
-
         // send the component's bundle js file up
-        logFn('Uploading bundle js to S3: bucket: ' + s3bucket + ', key: ' + bundleKey);
-
         var bundlePath = (0, _file.createPath)(componentRoot, version, componentInfo.bundleRoot, bundleName + '.js');
-
         promise = (0, _s2.upload)(bundlePath, bundleKey, s3bucket).then(function (success) {
-            logFn('DID an upload go through');
             if (success) {
                 var assetsSrc = componentInfo.assets;
                 if (assetsSrc) {
                     var tarKey = (0, _file.createPath)(s3folder, componentRoot, version, componentInfo.bundleRoot, bundleName + '.tar');
-                    logFn('Asset Tar js: ' + tarKey);
-                    logFn('Uploading tar to S3: bucket: ' + s3bucket + ', key: ' + tarKey);
                     return (0, _s2.upload)(bundleName + '.tar', tarKey, s3bucket);
                 }
-            } else {
-                logFn('didnt send');
             }
         });
         uploadPromises.push(promise);
@@ -270,7 +269,6 @@ var uploadBundleComponents = exports.uploadBundleComponents = function uploadBun
     for (var iter = 0; iter < componentNames.length; iter++) {
         _loop(iter);
     }
-
     return Promise.all(uploadPromises);
 };
 
@@ -285,7 +283,8 @@ var compileAssetMappingJSON = function compileAssetMappingJSON(bundledAssets) {
     for (var i = 0; i < bundledAssets.length; i++) {
         var assetInfo = bundledAssets[i];
         assetMapping[assetInfo.name] = {
-            relativePath: assetInfo.relativePath
+            relativePath: assetInfo.relativePath,
+            bundleRoot: assetInfo.bundleRoot
         };
     }
     // return the object for assetSettings that will be read while unbundling component assets

@@ -3,13 +3,26 @@
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
-exports.getLastCommitHash = exports.addTag = exports.getLastTag = exports.getTags = undefined;
+exports.getLastCommitHash = exports.addTag = exports.getLastTag = exports.getTags = exports.mostRecentTag = undefined;
 
 var _simpleGit = require('simple-git');
 
 var _simpleGit2 = _interopRequireDefault(_simpleGit);
 
+var _child_process = require('child_process');
+
+var _child_process2 = _interopRequireDefault(_child_process);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+var mostRecentTag = exports.mostRecentTag = function mostRecentTag() {
+    var dir = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : undefined;
+
+    var command = 'git describe';
+    var exec = _child_process2.default.execSync;
+    var description = exec(command);
+    return description;
+};
 
 /**
  * Get all git tags
@@ -22,6 +35,7 @@ var getTags = exports.getTags = function getTags() {
 
     return new Promise(function (resolve, reject) {
         (0, _simpleGit2.default)(dir).tags(function (err, tags) {
+
             if (err) {
                 reject(new Error('No tags finded'));
             } else {
