@@ -163,9 +163,6 @@ const writeComponentConfig = (version, bundledAssets) => {
     let bundleJSONStr = `{
         "componentSettings": ${compositeJSON},
         "systemJSConfig": {
-            "paths": {
-                "components/*": ".${DEFAULTS.s3folder}/components/*"
-            },
             ${bundlesStr}
         }
     }`;
