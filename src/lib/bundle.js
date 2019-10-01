@@ -99,46 +99,64 @@ export const bundleComponents = (version) => {
     let componentNames = Object.keys(componentsToBundle);
     let bundledAssets = [];
     let previousComponents = [];
+
     for (let iter = 0; iter < componentNames.length; iter++) {
         let name = componentNames[iter];
         let componentInfo = componentsToBundle[name];
-        logFn('Bundling component: ' + name);
-        // generate properties used by the bundling command
-        const plusBundle = (componentInfo.plus) ? ` + ${componentInfo.plus} ` : '';             // use if a component bundle requires an extra dependency
-        const modulePath = componentInfo.dist;                                                  // the location of the code that will be compiled
-        // create a string that defines which code should be removed from the component bundling
-        // this can be used to remove some non-component specific code that may exist in the same folder
-        let subtractComponents = '';
-        let libToRemove = componentInfo.sub || [];
-        libToRemove = libToRemove.concat(previousComponents);
-        if (libToRemove) {
-            for (let i = 0; i < libToRemove.length; i++) {
-                subtractComponents += ` - ${libToRemove[i]} `;
+        
+        if (componentInfo.dist) {
+            logFn('Bundling component: ' + name);
+            // generate properties used by the bundling command
+            const modulePath = componentInfo.dist;                                                  // the location of the code that will be compiled
+            // create a string that defines which code should be removed from the component bundling
+            // this can be used to remove some non-component specific code that may exist in the same folder
+            let subtractComponents = '';
+            let libToRemove = componentInfo.sub || [];
+            libToRemove = libToRemove.concat(previousComponents);
+            if (libToRemove) {
+                for (let i = 0; i < libToRemove.length; i++) {
+                    subtractComponents += ` - ${libToRemove[i]} `;
+                }
             }
-        }
-        const bundleCommand = `${modulePath} ${plusBundle} ${subSDK} ${subtractComponents} `                           // composite command for bundling the component
-        const bundleResult = createPath(bundleRoot, version, componentInfo.bundleRoot, `${name}.js`);
-        // apply extra parameters to the bundle call as necessary
-        // TODO: determine if extra params are appropriate
-        let extraParams = [];
-        extraParams.push('--inject');
-        // perform the bundle command
-        const res = spawn(command, ['bundle', bundleCommand, bundleResult].concat(extraParams), {stdio: "inherit"});
-        // check the result of the bundling
-        if (!res.error && res.status === 0) {
-            logFn(`Bundled component to: ${bundleResult}`);
+    
+            let plusComponents = '';
+            let libToAdd = componentInfo.plus;
+            if (libToAdd) {
+                for (let i = 0; i < libToAdd.length; i++) {
+                    plusComponents += ` + ${libToAdd[i]} `;
+                }
+            }
+    
+            const bundleCommand = `${modulePath} ${plusComponents} ${subSDK} ${subtractComponents} `                           // composite command for bundling the component
+            const bundleResult = createPath(bundleRoot, version, componentInfo.bundleRoot, `${name}.js`);
+            // apply extra parameters to the bundle call as necessary
+            let extraParams = [];
+            extraParams.push('--inject');
+            // perform the bundle command
+            const res = spawn(command, ['bundle', bundleCommand, bundleResult].concat(extraParams), {stdio: "inherit"});
+            // check the result of the bundling
+            if (!res.error && res.status === 0) {
+                logFn(`Bundled component to: ${bundleResult}`);
+            } else {
+                // if there was an error, break from the bundling loop
+                logFn(`Error writing bundle: ${bundleResult}`);
+                success = false;
+                break;
+            }
+
+            // remove core components from all subsequent components
+            if (componentInfo.name === "CoreComponents") {
+                previousComponents.push(bundleResult);
+            }
         } else {
-            // if there was an error, break from the bundling loop
-            logFn(`Error writing bundle: ${bundleResult}`);
-            success = false;
-            break;
+            logFn('Skipping code bundle for component: ' + name);
+            const componentFolder = createPath(bundleRoot, version, componentInfo.bundleRoot);
+            FS.mkdirSync(componentFolder)
         }
+        
         // bundle the assets that are related to this component as signified by properties in the package.json
         let assetBundle = bundleComponentAssets(componentInfo, version);
         if (assetBundle) bundledAssets.push(assetBundle);
-
-
-        previousComponents.push(bundleResult);
     }
     // if every component bundled properly, then generate a json that holds neede configuration info
     if (success) writeComponentConfig(version, bundledAssets);
