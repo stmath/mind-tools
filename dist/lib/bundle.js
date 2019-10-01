@@ -165,6 +165,7 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
             // apply extra parameters to the bundle call as necessary
             var extraParams = [];
             extraParams.push('--inject');
+            extraParams.push('--skip-source-maps');
             // perform the bundle command
             var res = spawn(command, ['bundle', bundleCommand, bundleResult].concat(extraParams), { stdio: "inherit" });
             // check the result of the bundling
@@ -209,10 +210,9 @@ var bundleComponentAssets = function bundleComponentAssets(componentInfo, versio
     var bundleDir = (0, _file.createPath)(componentsDir, version, componentInfo.bundleRoot); // should be 'components/{version}/{componentName}/'
     var bundlePath = (0, _file.createPath)(bundleDir, componentInfo.name + '.tar');
     var bundleName = _path2.default.resolve('./' + bundlePath);
-    logFn('Bundling assets: ' + bundleName);
+
     // call to nectar to bundle the assets
     (0, _nectar2.default)(assetsSrc, bundleName, { cwd: assetsDirectory });
-    // return a JSON with info about this asset bundle in a JSON that will be used when the componentConfig is written
     return {
         name: componentInfo.name,
         relativePath: componentInfo.relativeAssetPath,
