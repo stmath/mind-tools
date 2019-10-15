@@ -11,14 +11,25 @@ var _commandLineArgs = require('command-line-args');
 
 var _commandLineArgs2 = _interopRequireDefault(_commandLineArgs);
 
+var _test = require('./lib/test');
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var optionDefinitions = [{ name: 'dest', alias: 'd', type: String, defaultValue: 'components/' }, { name: 'version', type: String }];
+var optionDefinitions = [{ name: 'dest', alias: 'd', type: String, defaultValue: 'components/' }, { name: 'version', type: String }, { name: 'minify', type: Boolean, defaultValue: true }, { name: 'test', type: Boolean, defaultValue: false }];
 
 var options = (0, _commandLineArgs2.default)(optionDefinitions);
 var log = console.log;
 
 (0, _bundle.setLogHandler)(log);
+if (options.test) {
+	log('Running tests');
+	if ((0, _test.testComponentBundle)()) {
+		log('Tests passed with no errors');
+	} else {
+		log('Tests failed');
+		process.exit(1);
+	}
+}
 (0, _file.mkdir)(options.dest);
 var version = options.version;
 if (!version) {
@@ -30,7 +41,7 @@ if (!version) {
 }
 log('Bundling Components to ' + options.dest + version + '/');
 if (version) {
-	var success = (0, _bundle.bundleComponents)(version);
+	var success = (0, _bundle.bundleComponents)(version, options.minify);
 	if (!success) new Error('Error while bundling Components.');
 } else {
 	new Error('Unable to apply a version.');

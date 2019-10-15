@@ -120,6 +120,8 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
  * @param {String} version the string to apply to the compiled version of these bundles
  */
 var bundleComponents = exports.bundleComponents = function bundleComponents(version) {
+    var minify = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
+
     var success = true;
     // determine all the components that can be bundled from this repo
     var componentsToBundle = getPackageJsonField('mind.componentBundles');
@@ -166,6 +168,7 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
             var extraParams = [];
             extraParams.push('--inject');
             extraParams.push('--skip-source-maps');
+            if (minify) extraParams.push('--minify');
             // perform the bundle command
             var res = spawn(command, ['bundle', bundleCommand, bundleResult].concat(extraParams), { stdio: "inherit" });
             // check the result of the bundling

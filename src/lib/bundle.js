@@ -86,7 +86,7 @@ export const bundleGame = (version, dest, hash) => {
  * Used for mind-game-components repo. Bundle each available component and its assets
  * @param {String} version the string to apply to the compiled version of these bundles
  */
-export const bundleComponents = (version) => {
+export const bundleComponents = (version, minify = true) => {
     let success = true;
     // determine all the components that can be bundled from this repo
     const componentsToBundle = getPackageJsonField('mind.componentBundles');
@@ -133,6 +133,7 @@ export const bundleComponents = (version) => {
             let extraParams = [];
             extraParams.push('--inject');
             extraParams.push('--skip-source-maps');
+            if(minify) extraParams.push('--minify');
             // perform the bundle command
             const res = spawn(command, ['bundle', bundleCommand, bundleResult].concat(extraParams), {stdio: "inherit"});
             // check the result of the bundling
