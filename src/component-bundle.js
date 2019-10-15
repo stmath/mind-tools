@@ -6,10 +6,11 @@ import commandLineArgs from 'command-line-args';
 import { testComponentBundle } from './lib/test';
 
 const optionDefinitions = [
+	{ name: 'skipbundle', alias: 's', type: Boolean},
 	{ name: 'dest', alias: 'd', type: String, defaultValue: 'components/' },
-	{ name: 'version', type: String },
+	{ name: 'version', alias: 'v', type: String },
 	{ name: 'minify', type: Boolean, defaultValue: true},
-	{ name: 'test', type: Boolean, defaultValue: false},
+	{ name: 'test', alias: 't', type: Boolean, defaultValue: false},
 ];
 
 const options = commandLineArgs(optionDefinitions);
@@ -25,20 +26,24 @@ if (options.test) {
 		process.exit(1);
 	}
 }
-mkdir(options.dest);
-let version = options.version;
-if (!version) {
-	let recentTag = mostRecentTag();
-	if (recentTag) {
-		recentTag = '' + recentTag;
-		version = recentTag.trim();
+if (!options.skipbundle) {
+	mkdir(options.dest);
+	let version = options.version;
+	if (!version) {
+		let recentTag = mostRecentTag();
+		if (recentTag) {
+			recentTag = '' + recentTag;
+			version = recentTag.trim();
+		}
 	}
-}
-log(`Bundling Components to ${options.dest}${version}/`);
-if (version) {
-	let success = bundleComponents(version, options.minify);
-	if (!success) new Error('Error while bundling Components.');
-}
-else {
-	new Error('Unable to apply a version.');
+	log(`Bundling Components to ${options.dest}${version}/`);
+	if (version) {
+		let success = bundleComponents(version, options.minify);
+		if (!success) new Error('Error while bundling Components.');
+	}
+	else {
+		new Error('Unable to apply a version.');
+	}
+} else {
+	log('skipping component bundling');
 }
