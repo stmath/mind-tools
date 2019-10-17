@@ -135,6 +135,8 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
     var bundledAssets = [];
     var previousComponents = [];
 
+    if (minify) logFn('Bundle files will be minified');
+
     for (var iter = 0; iter < componentNames.length; iter++) {
         var name = componentNames[iter];
         var componentInfo = componentsToBundle[name];

@@ -100,6 +100,8 @@ export const bundleComponents = (version, minify = true) => {
     let bundledAssets = [];
     let previousComponents = [];
 
+    if(minify) logFn('Bundle files will be minified');
+
     for (let iter = 0; iter < componentNames.length; iter++) {
         let name = componentNames[iter];
         let componentInfo = componentsToBundle[name];
