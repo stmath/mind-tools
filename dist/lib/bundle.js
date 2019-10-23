@@ -92,7 +92,13 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
             logFn('Writing bundle ./' + name + '.js');
 
             var bundleCommand = modulePath + ' - mind-sdk/**/* ';
-            var useComponentBundles = getPackageJsonField('mind.useComponentBundles');
+
+            // component bundling is the default behavior on games using minComponentBundles
+            var minComponentBundles = '0.7.0';
+            var componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
+            var isMinVersion = isVersionAfter(componentVersion, minComponentBundles);
+            var useComponentBundles = isMinVersion || getPackageJsonField('mind.useComponentBundles');
+
             if (useComponentBundles) {
                 bundleCommand = bundleCommand + ' - mind-game-components/**/* ';
                 logFn('Writing bundle without components');
@@ -115,6 +121,34 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
     return ret;
 };
 
+var isVersionAfter = function isVersionAfter(testVersion, targetVersion) {
+    var testParts = testVersion.split('.');
+    logFn('Test version ' + testVersion);
+    var targetParts = targetVersion.split('.');
+    // iterate over all parts of the testVersion to compare against target
+    for (var iter = 0; iter < testParts.length; iter++) {
+        logFn('Check test version ' + testParts[iter]);
+        // validate that the test is a numeric value
+        if (isNaN(testParts[iter])) {
+            logFn('failed is NaN');
+            return false;
+        }
+        // if there is no matching target version,
+        // then we assume the components is later
+        var targetPart = targetParts[iter];
+        if (!targetPart || isNaN(targetPart)) {
+            logFn('target check ended ' + targetPart);
+            return true;
+        }
+        // if the test part is greater than the target part, then return false
+        if (targetPart > testParts[iter]) {
+            logFn('failed test: Target-' + targetPart + ' Test-' + testParts[iter]);
+            return false;
+        }
+    }
+    return true;
+};
+
 /**
  * Used for mind-game-components repo. Bundle each available component and its assets
  * @param {String} version the string to apply to the compiled version of these bundles
@@ -130,6 +164,7 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
     var spawn = _child_process2.default.spawnSync;
     var command = _os2.default.platform() === 'win32' ? 'jspm.cmd' : 'jspm';
     var subSDK = ' - mind-sdk/**/* ';
+
     // Setup iteration over all components that will be bundled
     var componentNames = Object.keys(componentsToBundle);
     var bundledAssets = [];
