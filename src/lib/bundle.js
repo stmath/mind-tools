@@ -38,6 +38,7 @@ export const bundleAssets = (dest) => {
 };
 
 
+
 /**
  * Bundle game in a promise which ends with true is succed.
  *
@@ -59,7 +60,17 @@ export const bundleGame = (version, dest, hash) => {
             logFn(`Writing bundle ./${name}.js`);
 
             let bundleCommand = `${modulePath} - mind-sdk/**/* `;
+            
+            // component bundling is the default behavior on games using minComponentBundles
             let useComponentBundles = getPackageJsonField('mind.useComponentBundles');
+            if (!useComponentBundles) {
+                // if not explicitly opting-in to component bundles, then check component version
+                // as of 0.7.0 arenas will use component bundles by default
+                const minComponentBundles = '0.7.0';
+                let componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
+                useComponentBundles = isVersionAfter(componentVersion, minComponentBundles);
+            }
+            // subtract component bundles
             if (useComponentBundles) {
                 bundleCommand = bundleCommand + ' - mind-game-components/**/* ';
                 logFn(`Writing bundle without components`);
@@ -83,6 +94,40 @@ export const bundleGame = (version, dest, hash) => {
 };
 
 /**
+ * Check if the given semVer is after the targeted semVer
+ * This is used to check if an arena's component version is after the 0.7.0 limit
+ * @param {String} testVersion The component version to check 
+ * @param {String} targetVersion The component version to target
+ */
+const isVersionAfter = (testVersion, targetVersion) => {
+    let testParts = testVersion.split('.');
+    logFn('Test version ' + testVersion);
+    let targetParts = targetVersion.split('.');
+    // iterate over all parts of the testVersion to compare against target
+    for (let iter = 0; iter < testParts.length; iter++) {
+        logFn('Check test version ' + testParts[iter]);
+        // validate that the test is a numeric value
+        if (isNaN(testParts[iter])) {
+            logFn('failed is NaN');
+            return false;
+        }
+        // if there is no matching target version,
+        // then we assume the components is later
+        let targetPart = targetParts[iter];
+        if (!targetPart || isNaN(targetPart)) {
+            logFn('target check ended ' + targetPart);
+            return true;
+        }
+        // if the test part is greater than the target part, then return false
+        if (targetPart > testParts[iter]) {
+            logFn(`failed test: Target-${targetPart} Test-${testParts[iter]}`);
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
  * Used for mind-game-components repo. Bundle each available component and its assets
  * @param {String} version the string to apply to the compiled version of these bundles
  */
@@ -95,6 +140,7 @@ export const bundleComponents = (version, minify = true) => {
     const spawn = child_process.spawnSync;
     const command = (os.platform() === 'win32') ? 'jspm.cmd' : 'jspm';
     const subSDK = ' - mind-sdk/**/* ';
+
     // Setup iteration over all components that will be bundled
     let componentNames = Object.keys(componentsToBundle);
     let bundledAssets = [];
