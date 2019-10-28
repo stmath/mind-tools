@@ -50,3 +50,4 @@ if (!options.skipbundle) {
 } else {
 	log('skipping component bundling');
 }
+process.exit(0);

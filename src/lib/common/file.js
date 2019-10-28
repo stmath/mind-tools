@@ -118,3 +118,20 @@ export const mkdir = (path) => {
 export const mv = (oldPath, newPath) => {
 	return FS.renameSync(oldPath, newPath);
 }
+
+export const deleteFolderRecursive = (folderDir) => {
+
+	const path = require('path');
+
+	if (FS.existsSync(folderDir)) {
+	  FS.readdirSync(folderDir).forEach((file, index) => {
+		const curPath = path.join(folderDir, file);
+		if (FS.lstatSync(curPath).isDirectory()) { // recurse
+		  deleteFolderRecursive(curPath);
+		} else { // delete file
+		  FS.unlinkSync(curPath);
+		}
+	  });
+	  FS.rmdirSync(folderDir);
+	}
+  };

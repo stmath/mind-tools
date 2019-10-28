@@ -10,7 +10,8 @@ const optionDefinitions = [
 	{ name: 'tag', type: Boolean},
 	{ name: 'upload', alias: 'u', type: String },
 	{ name: 'dest', alias: 'd', type: String, defaultValue: 'dist/' },
-	{ name: 'gameName', alias: 'b', type: Boolean}
+	{ name: 'gameName', alias: 'b', type: Boolean},
+	{ name: 'minify', alias: 'm', type: Boolean}
 ];
 
 const options = commandLineArgs(optionDefinitions);
@@ -55,7 +56,7 @@ if (options.gameName) {
 	.then(_ => {
 		log('Bundling game');
 		return getLastCommitHash().then((hash) => {
-			let success = bundleGame(version, options.dest, hash);
+			let success = bundleGame(version, options.dest, hash, options.minify);
 			let promise;
 			if (!success) {
 				promise = Promise.reject(new Error('Error while bundling game.'));

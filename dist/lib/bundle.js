@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
-exports.getBundleName = exports.uploadBundle = exports.setLogHandler = exports.uploadBundleComponents = exports.bundleComponents = exports.bundleGame = exports.bundleAssets = undefined;
+exports.getPkgField = exports.getBundleName = exports.uploadBundle = exports.setLogHandler = exports.uploadBundleComponents = exports.bundleComponents = exports.bundleGame = exports.bundleAssets = undefined;
 
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
 
@@ -78,7 +78,7 @@ var bundleAssets = exports.bundleAssets = function bundleAssets(dest) {
  * @param {string/number} version: Game version
  * @returns {boolean}: True if succeeds
  */
-var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
+var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash, minify) {
     var name = getPackageJsonField('mind.name');
     var ret = false;
     if (typeof name === 'string' && name.length > 0) {
@@ -92,13 +92,28 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
             logFn('Writing bundle ./' + name + '.js');
 
             var bundleCommand = modulePath + ' - mind-sdk/**/* ';
+
+            // component bundling is the default behavior on games using minComponentBundles
             var useComponentBundles = getPackageJsonField('mind.useComponentBundles');
+            if (!useComponentBundles) {
+                // if not explicitly opting-in to component bundles, then check component version
+                // as of 0.7.0 arenas will use component bundles by default
+                var minComponentBundles = '0.7.0';
+                var componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
+                useComponentBundles = isVersionAfter(componentVersion, minComponentBundles);
+            }
+            useComponentBundles = true;
+
+            // subtract component bundles
             if (useComponentBundles) {
                 bundleCommand = bundleCommand + ' - mind-game-components/**/* ';
                 logFn('Writing bundle without components');
             }
 
-            var res = spawn(command, ['bundle', bundleCommand, dest + name + '.js'], { stdio: "inherit" });
+            var extraParams = [];
+            if (minify) extraParams.push('--minify');
+
+            var res = spawn(command, ['bundle', bundleCommand, dest + name + '.js'].concat(extraParams), { stdio: "inherit" });
             if (!res.error && res.status === 0) {
                 logFn('Writing manifest ./manifest.json');
                 writeManifest(name, modulePath, version, dest, hash);
@@ -113,6 +128,47 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
         logFn('No bundle name (mind.name) found in package.json');
     }
     return ret;
+};
+
+var getFileSize = function getFileSize(gameName) {
+    var bundlejs = gameName + '.js';
+    var filePath = (0, _file.createPath)('dist', bundlejs);
+    var stats = fs.statSync(filePath);
+    return stats.size;
+};
+
+/**
+ * Check if the given semVer is after the targeted semVer
+ * This is used to check if an arena's component version is after the 0.7.0 limit
+ * @param {String} testVersion The component version to check 
+ * @param {String} targetVersion The component version to target
+ */
+var isVersionAfter = function isVersionAfter(testVersion, targetVersion) {
+    var testParts = testVersion.split('.');
+    logFn('Test version ' + testVersion);
+    var targetParts = targetVersion.split('.');
+    // iterate over all parts of the testVersion to compare against target
+    for (var iter = 0; iter < testParts.length; iter++) {
+        logFn('Check test version ' + testParts[iter]);
+        // validate that the test is a numeric value
+        if (isNaN(testParts[iter])) {
+            logFn('failed is NaN');
+            return false;
+        }
+        // if there is no matching target version,
+        // then we assume the components is later
+        var targetPart = targetParts[iter];
+        if (!targetPart || isNaN(targetPart)) {
+            logFn('target check ended ' + targetPart);
+            return true;
+        }
+        // if the test part is greater than the target part, then return false
+        if (targetPart > testParts[iter]) {
+            logFn('failed test: Target-' + targetPart + ' Test-' + testParts[iter]);
+            return false;
+        }
+    }
+    return true;
 };
 
 /**
@@ -386,6 +442,9 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash) 
     var buildDate = (0, _momentTimezone2.default)().tz('America/Los_Angeles').format();
     var componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
     var useComponentBundles = getPackageJsonField('mind.useComponentBundles');
+
+    var fileScriptSize = getFileSize(name);
+
     var manifest = {
         'module': name,
         'arenaKey': arenakey,
@@ -395,6 +454,7 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash) 
         'sdkBundleFile': '/pilot/sdk/mind-sdk-' + sdkVersion + '.js',
         'gameBundleFile': (0, _file.createPath)('/', folder, name, version, name + '.js'),
         'assetsBaseUrl': folder,
+        'arenaSize': fileScriptSize,
         'systemJsConfig': {
             'map': {
                 'mind-sdk': 'mind:mind-sdk@' + sdkVersion
@@ -422,6 +482,16 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash) 
     } catch (e) {
         logFn('Error writing manifest: ' + e);
     }
+};
+
+var getPkgField = exports.getPkgField = function getPkgField(file, field) {
+    var retObj = file.content;
+    if (typeof field === 'string' && field.length > 0) {
+        field.split('.').forEach(function (p) {
+            retObj = retObj && retObj[p];
+        });
+    }
+    return retObj;
 };
 
 var getPackageJsonField = function getPackageJsonField(field) {

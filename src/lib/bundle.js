@@ -45,7 +45,7 @@ export const bundleAssets = (dest) => {
  * @param {string/number} version: Game version
  * @returns {boolean}: True if succeeds
  */
-export const bundleGame = (version, dest, hash) => {
+export const bundleGame = (version, dest, hash, minify) => {
     let name = getPackageJsonField('mind.name');
     let ret = false;
     if (typeof name === 'string' && name.length > 0) {
@@ -59,13 +59,28 @@ export const bundleGame = (version, dest, hash) => {
             logFn(`Writing bundle ./${name}.js`);
 
             let bundleCommand = `${modulePath} - mind-sdk/**/* `;
+            
+            // component bundling is the default behavior on games using minComponentBundles
             let useComponentBundles = getPackageJsonField('mind.useComponentBundles');
+            if (!useComponentBundles) {
+                // if not explicitly opting-in to component bundles, then check component version
+                // as of 0.7.0 arenas will use component bundles by default
+                const minComponentBundles = '0.7.0';
+                let componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
+                useComponentBundles = isVersionAfter(componentVersion, minComponentBundles);
+            }
+            useComponentBundles = true;
+
+            // subtract component bundles
             if (useComponentBundles) {
                 bundleCommand = bundleCommand + ' - mind-game-components/**/* ';
                 logFn(`Writing bundle without components`);
             }
 
-            const res = spawn(command, ['bundle', bundleCommand, `${dest+name}.js`], {stdio: "inherit"});
+            let extraParams = [];
+            if(minify) extraParams.push('--minify');
+
+            const res = spawn(command, ['bundle', bundleCommand, `${dest+name}.js`].concat(extraParams), {stdio: "inherit"});
             if (!res.error && res.status === 0) {
                 logFn(`Writing manifest ./manifest.json`);
                 writeManifest(name, modulePath, version, dest, hash);
@@ -81,6 +96,47 @@ export const bundleGame = (version, dest, hash) => {
     }
     return ret;
 };
+
+const getFileSize = (gameName) => {
+    let bundlejs = gameName + '.js';
+    let filePath = createPath('dist', bundlejs)
+    const stats = fs.statSync(filePath);
+    return stats.size;
+}
+
+/**
+ * Check if the given semVer is after the targeted semVer
+ * This is used to check if an arena's component version is after the 0.7.0 limit
+ * @param {String} testVersion The component version to check 
+ * @param {String} targetVersion The component version to target
+ */
+const isVersionAfter = (testVersion, targetVersion) => {
+    let testParts = testVersion.split('.');
+    logFn('Test version ' + testVersion);
+    let targetParts = targetVersion.split('.');
+    // iterate over all parts of the testVersion to compare against target
+    for (let iter = 0; iter < testParts.length; iter++) {
+        logFn('Check test version ' + testParts[iter]);
+        // validate that the test is a numeric value
+        if (isNaN(testParts[iter])) {
+            logFn('failed is NaN');
+            return false;
+        }
+        // if there is no matching target version,
+        // then we assume the components is later
+        let targetPart = targetParts[iter];
+        if (!targetPart || isNaN(targetPart)) {
+            logFn('target check ended ' + targetPart);
+            return true;
+        }
+        // if the test part is greater than the target part, then return false
+        if (targetPart > testParts[iter]) {
+            logFn(`failed test: Target-${targetPart} Test-${testParts[iter]}`);
+            return false;
+        }
+    }
+    return true;
+}
 
 /**
  * Used for mind-game-components repo. Bundle each available component and its assets
@@ -342,6 +398,9 @@ const writeManifest = (name, arenakey, version, dest, hash) => {
     const buildDate = moment().tz('America/Los_Angeles').format();
     const componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
     const useComponentBundles = getPackageJsonField('mind.useComponentBundles');
+
+    const fileScriptSize = getFileSize(name);
+
     const manifest = {
         'module': name,
         'arenaKey': arenakey,
@@ -351,6 +410,7 @@ const writeManifest = (name, arenakey, version, dest, hash) => {
         'sdkBundleFile': `/pilot/sdk/mind-sdk-${sdkVersion}.js`,
         'gameBundleFile': createPath('/', folder, name, version, name + '.js'),
         'assetsBaseUrl': folder,
+        'arenaSize': fileScriptSize,
         'systemJsConfig': {
             'map': {
                 'mind-sdk': `mind:mind-sdk@${sdkVersion}`
@@ -380,6 +440,18 @@ const writeManifest = (name, arenakey, version, dest, hash) => {
     }
 
 };
+
+export const getPkgField = (file, field) => {
+    let retObj = file.content;
+	if (typeof field === 'string' && field.length > 0) {
+		field
+            .split('.')
+            .forEach(p => {
+                retObj = retObj && retObj[p];
+            });
+    }
+	return retObj;
+}
 
 const getPackageJsonField = field => {
 	if (!getPackageJsonField.cache) {

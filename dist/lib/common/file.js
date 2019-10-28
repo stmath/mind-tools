@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
 	value: true
 });
-exports.mv = exports.mkdir = exports.createPath = exports.getJsonFile = exports.contentType = undefined;
+exports.deleteFolderRecursive = exports.mv = exports.mkdir = exports.createPath = exports.getJsonFile = exports.contentType = undefined;
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
@@ -127,4 +127,23 @@ var mkdir = exports.mkdir = function mkdir(path) {
 
 var mv = exports.mv = function mv(oldPath, newPath) {
 	return _fs2.default.renameSync(oldPath, newPath);
+};
+
+var deleteFolderRecursive = exports.deleteFolderRecursive = function deleteFolderRecursive(folderDir) {
+
+	var path = require('path');
+
+	if (_fs2.default.existsSync(folderDir)) {
+		_fs2.default.readdirSync(folderDir).forEach(function (file, index) {
+			var curPath = path.join(folderDir, file);
+			if (_fs2.default.lstatSync(curPath).isDirectory()) {
+				// recurse
+				deleteFolderRecursive(curPath);
+			} else {
+				// delete file
+				_fs2.default.unlinkSync(curPath);
+			}
+		});
+		_fs2.default.rmdirSync(folderDir);
+	}
 };
