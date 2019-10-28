@@ -79,7 +79,7 @@ export const bundleGame = (version, dest, hash) => {
             const res = spawn(command, ['bundle', bundleCommand, `${dest+name}.js`], {stdio: "inherit"});
             if (!res.error && res.status === 0) {
                 logFn(`Writing manifest ./manifest.json`);
-                writeManifest(name, modulePath, version, dest, hash);
+                writeManifest(name, modulePath, version, dest, hash, useComponentBundles);
                 ret = true;
             } else {
                 logFn(`Error: Jspm finish with status ${res.status} and error: ${res.error}.`);
@@ -378,7 +378,7 @@ export const uploadBundle = (version, bundleName = undefined) => {
 export const getBundleName = () => getPackageJsonField('mind.name');
 
 
-const writeManifest = (name, arenakey, version, dest, hash) => {
+const writeManifest = (name, arenakey, version, dest, hash, useComponentBundles) => {
     const sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
     const folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
     const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
@@ -387,7 +387,6 @@ const writeManifest = (name, arenakey, version, dest, hash) => {
     const overrides = getPackageJsonField('mind.overrides');
     const buildDate = moment().tz('America/Los_Angeles').format();
     const componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
-    const useComponentBundles = getPackageJsonField('mind.useComponentBundles');
     const manifest = {
         'module': name,
         'arenaKey': arenakey,

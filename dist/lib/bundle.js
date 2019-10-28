@@ -94,11 +94,15 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
             var bundleCommand = modulePath + ' - mind-sdk/**/* ';
 
             // component bundling is the default behavior on games using minComponentBundles
-            var minComponentBundles = '0.7.0';
-            var componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
-            var isMinVersion = isVersionAfter(componentVersion, minComponentBundles);
-            var useComponentBundles = isMinVersion || getPackageJsonField('mind.useComponentBundles');
-
+            var useComponentBundles = getPackageJsonField('mind.useComponentBundles');
+            if (!useComponentBundles) {
+                // if not explicitly opting-in to component bundles, then check component version
+                // as of 0.7.0 arenas will use component bundles by default
+                var minComponentBundles = '0.7.0';
+                var componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
+                useComponentBundles = isVersionAfter(componentVersion, minComponentBundles);
+            }
+            // subtract component bundles
             if (useComponentBundles) {
                 bundleCommand = bundleCommand + ' - mind-game-components/**/* ';
                 logFn('Writing bundle without components');
@@ -107,7 +111,7 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
             var res = spawn(command, ['bundle', bundleCommand, dest + name + '.js'], { stdio: "inherit" });
             if (!res.error && res.status === 0) {
                 logFn('Writing manifest ./manifest.json');
-                writeManifest(name, modulePath, version, dest, hash);
+                writeManifest(name, modulePath, version, dest, hash, useComponentBundles);
                 ret = true;
             } else {
                 logFn('Error: Jspm finish with status ' + res.status + ' and error: ' + res.error + '.');
@@ -121,6 +125,12 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
     return ret;
 };
 
+/**
+ * Check if the given semVer is after the targeted semVer
+ * This is used to check if an arena's component version is after the 0.7.0 limit
+ * @param {String} testVersion The component version to check 
+ * @param {String} targetVersion The component version to target
+ */
 var isVersionAfter = function isVersionAfter(testVersion, targetVersion) {
     var testParts = testVersion.split('.');
     logFn('Test version ' + testVersion);
@@ -406,7 +416,7 @@ var getBundleName = exports.getBundleName = function getBundleName() {
     return getPackageJsonField('mind.name');
 };
 
-var writeManifest = function writeManifest(name, arenakey, version, dest, hash) {
+var writeManifest = function writeManifest(name, arenakey, version, dest, hash, useComponentBundles) {
     var sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
     var folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
 
@@ -420,7 +430,6 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash) 
     var overrides = getPackageJsonField('mind.overrides');
     var buildDate = (0, _momentTimezone2.default)().tz('America/Los_Angeles').format();
     var componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
-    var useComponentBundles = getPackageJsonField('mind.useComponentBundles');
     var manifest = {
         'module': name,
         'arenaKey': arenakey,
