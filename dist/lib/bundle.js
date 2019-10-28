@@ -102,6 +102,9 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
                 var componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
                 useComponentBundles = isVersionAfter(componentVersion, minComponentBundles);
             }
+
+            useComponentBundles = false;
+
             // subtract component bundles
             if (useComponentBundles) {
                 bundleCommand = bundleCommand + ' - mind-game-components/**/* ';
