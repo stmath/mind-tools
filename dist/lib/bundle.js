@@ -443,7 +443,8 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash) 
     var componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
     var useComponentBundles = getPackageJsonField('mind.useComponentBundles');
 
-    var fileScriptSize = getFileSize(name);
+    var BYTES_TO_KB = 1000;
+    var fileScriptSize = Math.ceil(getFileSize(name) / BYTES_TO_KB);
 
     var manifest = {
         'module': name,
@@ -454,7 +455,7 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash) 
         'sdkBundleFile': '/pilot/sdk/mind-sdk-' + sdkVersion + '.js',
         'gameBundleFile': (0, _file.createPath)('/', folder, name, version, name + '.js'),
         'assetsBaseUrl': folder,
-        'arenaSize': fileScriptSize,
+        'arenaFileSize': fileScriptSize + ' KB',
         'systemJsConfig': {
             'map': {
                 'mind-sdk': 'mind:mind-sdk@' + sdkVersion
