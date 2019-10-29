@@ -133,7 +133,7 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash, m
 var getFileSize = function getFileSize(gameName) {
     var bundlejs = gameName + '.js';
     var filePath = (0, _file.createPath)('dist', bundlejs);
-    var stats = fs.statSync(filePath);
+    var stats = _fs2.default.statSync(filePath);
     return stats.size;
 };
 

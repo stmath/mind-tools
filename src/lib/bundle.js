@@ -100,7 +100,7 @@ export const bundleGame = (version, dest, hash, minify) => {
 const getFileSize = (gameName) => {
     let bundlejs = gameName + '.js';
     let filePath = createPath('dist', bundlejs)
-    const stats = fs.statSync(filePath);
+    const stats = FS.statSync(filePath);
     return stats.size;
 }
 
@@ -399,7 +399,8 @@ const writeManifest = (name, arenakey, version, dest, hash) => {
     const componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
     const useComponentBundles = getPackageJsonField('mind.useComponentBundles');
 
-    const fileScriptSize = getFileSize(name);
+    const BYTES_TO_KB = 1000
+    const fileScriptSize = Math.ceil(getFileSize(name)/BYTES_TO_KB);
 
     const manifest = {
         'module': name,
@@ -410,7 +411,7 @@ const writeManifest = (name, arenakey, version, dest, hash) => {
         'sdkBundleFile': `/pilot/sdk/mind-sdk-${sdkVersion}.js`,
         'gameBundleFile': createPath('/', folder, name, version, name + '.js'),
         'assetsBaseUrl': folder,
-        'arenaSize': fileScriptSize,
+        'arenaFileSize': `${fileScriptSize} KB`,
         'systemJsConfig': {
             'map': {
                 'mind-sdk': `mind:mind-sdk@${sdkVersion}`
