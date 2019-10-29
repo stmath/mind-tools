@@ -103,8 +103,6 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
                 useComponentBundles = isVersionAfter(componentVersion, minComponentBundles);
             }
 
-            useComponentBundles = false;
-
             // subtract component bundles
             if (useComponentBundles) {
                 bundleCommand = bundleCommand + ' - mind-game-components/**/* ';
