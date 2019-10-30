@@ -15,7 +15,7 @@ var _test = require('./lib/test');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var optionDefinitions = [{ name: 'skipbundle', alias: 's', type: Boolean }, { name: 'dest', alias: 'd', type: String, defaultValue: 'components/' }, { name: 'version', alias: 'v', type: String }, { name: 'minify', type: Boolean, defaultValue: true }, { name: 'test', alias: 't', type: Boolean, defaultValue: false }];
+var optionDefinitions = [{ name: 'skipbundle', alias: 's', type: Boolean }, { name: 'dest', alias: 'd', type: String, defaultValue: 'components/' }, { name: 'version', alias: 'v', type: String }, { name: 'minify', type: Boolean, defaultValue: true }, { name: 'test', alias: 't', type: Boolean, defaultValue: false }, { name: 'gzip', alias: 'g', type: Boolean, defaultValue: false }];
 
 var options = (0, _commandLineArgs2.default)(optionDefinitions);
 var log = console.log;
@@ -42,7 +42,7 @@ if (!options.skipbundle) {
 	}
 	log('Bundling Components to ' + options.dest + version + '/');
 	if (version) {
-		var success = (0, _bundle.bundleComponents)(version, options.minify);
+		var success = (0, _bundle.bundleComponents)(version, options.minify, options.gzip);
 		if (!success) new Error('Error while bundling Components.');
 	} else {
 		new Error('Unable to apply a version.');

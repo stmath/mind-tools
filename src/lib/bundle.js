@@ -14,7 +14,7 @@ import path from 'path';
  * @param {String} dest: Destination directory
  * @returns {Object<Promise>}
  */
-export const bundleAssets = (dest) => {
+export const bundleAssets = (dest, gzip) => {
     const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
     let ret = Promise.resolve(true);
     if (assets && output && assets.length > 0 && output.length > 0) {
@@ -22,7 +22,16 @@ export const bundleAssets = (dest) => {
         const mkdirRes = mkdir(destPath.substr(0, destPath.lastIndexOf('/')));
         if (mkdirRes.ok) {
             ret = nectar(assets, destPath)
-            .then(_ => true)
+            .then(_ => {
+                if (gzip) {
+                    logFn(`Compress asset tar file `);
+                    const spawn = child_process.spawnSync;
+                    let zipResult = spawn('gzip', ['-f', `${destPath}`], {stdio: "inherit"});
+                    if (!zipResult.error && zipResult.status === 0) logFn(`Assets - Compression completed`);
+                    else logFn(`Assets - Compression failed`);
+                }
+                return true;
+            })
             .catch(error => {
                 logFn(`Error on bundle assets ${error.message}`);
                 return false;
@@ -34,6 +43,7 @@ export const bundleAssets = (dest) => {
     } else {
         logFn('No assets field on package.json. mind.bundle-assets.{assets | output}');
     }
+
     return ret;
 };
 
@@ -45,7 +55,7 @@ export const bundleAssets = (dest) => {
  * @param {string/number} version: Game version
  * @returns {boolean}: True if succeeds
  */
-export const bundleGame = (version, dest, hash, minify) => {
+export const bundleGame = (version, dest, hash, minify, gzip) => {
     let name = getPackageJsonField('mind.name');
     let ret = false;
     if (typeof name === 'string' && name.length > 0) {
@@ -82,8 +92,15 @@ export const bundleGame = (version, dest, hash, minify) => {
 
             const res = spawn(command, ['bundle', bundleCommand, `${dest+name}.js`].concat(extraParams), {stdio: "inherit"});
             if (!res.error && res.status === 0) {
+                if (gzip) {
+                    logFn('Compress bundled javascript file. Note: this will keep the original file');
+                    let zipResult = spawn('gzip', ['-kf', `${dest+name}.js`], {stdio: "inherit"});
+                    if (!zipResult.error && zipResult.status === 0) logFn(`Compression completed`);
+                    else logFn(`Compression failed`);
+                }
+
                 logFn(`Writing manifest ./manifest.json`);
-                writeManifest(name, modulePath, version, dest, hash);
+                writeManifest(name, modulePath, version, dest, hash, useComponentBundles, gzip);
                 ret = true;
             } else {
                 logFn(`Error: Jspm finish with status ${res.status} and error: ${res.error}.`);
@@ -98,8 +115,7 @@ export const bundleGame = (version, dest, hash, minify) => {
 };
 
 const getFileSize = (gameName) => {
-    let bundlejs = gameName + '.js';
-    let filePath = createPath('dist', bundlejs)
+    let filePath = createPath('dist', gameName)
     const stats = FS.statSync(filePath);
     return stats.size;
 }
@@ -142,7 +158,7 @@ const isVersionAfter = (testVersion, targetVersion) => {
  * Used for mind-game-components repo. Bundle each available component and its assets
  * @param {String} version the string to apply to the compiled version of these bundles
  */
-export const bundleComponents = (version, minify = true) => {
+export const bundleComponents = (version, minify = true, gzip = false) => {
     let success = true;
     // determine all the components that can be bundled from this repo
     const componentsToBundle = getPackageJsonField('mind.componentBundles');
@@ -197,6 +213,12 @@ export const bundleComponents = (version, minify = true) => {
             // check the result of the bundling
             if (!res.error && res.status === 0) {
                 logFn(`Bundled component to: ${bundleResult}`);
+                if (gzip) {
+                    logFn('Compress bundled javascript file. Note: this will keep the original file');
+                    let zipResult = spawn('gzip', ['-kf', `${bundleResult}`], {stdio: "inherit"});
+                    if (!zipResult.error && zipResult.status === 0) logFn(`Compression completed`);
+                    else logFn(`Compression failed`);
+                }
             } else {
                 // if there was an error, break from the bundling loop
                 logFn(`Error writing bundle: ${bundleResult}`);
@@ -215,7 +237,7 @@ export const bundleComponents = (version, minify = true) => {
         }
         
         // bundle the assets that are related to this component as signified by properties in the package.json
-        let assetBundle = bundleComponentAssets(componentInfo, version);
+        let assetBundle = bundleComponentAssets(componentInfo, version, gzip);
         if (assetBundle) bundledAssets.push(assetBundle);
     }
     // if every component bundled properly, then generate a json that holds neede configuration info
@@ -224,7 +246,7 @@ export const bundleComponents = (version, minify = true) => {
     return success;
 };
 
-const bundleComponentAssets = (componentInfo, version) => {
+const bundleComponentAssets = (componentInfo, version, gzip) => {
     // check if this component requires asset bundling
     let assetsSrc = componentInfo.assets;
     if (!assetsSrc) return;
@@ -239,6 +261,15 @@ const bundleComponentAssets = (componentInfo, version) => {
 
     // call to nectar to bundle the assets
     nectar(assetsSrc, bundleName, {cwd: assetsDirectory});
+
+    if (gzip) {
+        logFn(`Compress asset tar file`);
+        const spawn = child_process.spawnSync;
+        let zipResult = spawn('gzip', ['-f', `${bundleName}`], {stdio: "inherit"});
+        if (!zipResult.error && zipResult.status === 0) logFn(`Assets - Compression completed`);
+        else logFn(`Assets - Compression failed`);
+    }
+
     return {
         name: componentInfo.name,
         relativePath: componentInfo.relativeAssetPath,
@@ -388,7 +419,7 @@ export const uploadBundle = (version, bundleName = undefined) => {
 export const getBundleName = () => getPackageJsonField('mind.name');
 
 
-const writeManifest = (name, arenakey, version, dest, hash) => {
+const writeManifest = (name, arenakey, version, dest, hash, useComponentBundles, gzip) => {
     const sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
     const folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
     const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
@@ -397,10 +428,10 @@ const writeManifest = (name, arenakey, version, dest, hash) => {
     const overrides = getPackageJsonField('mind.overrides');
     const buildDate = moment().tz('America/Los_Angeles').format();
     const componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
-    const useComponentBundles = getPackageJsonField('mind.useComponentBundles');
 
     const BYTES_TO_KB = 1000
-    const fileScriptSize = Math.ceil(getFileSize(name)/BYTES_TO_KB);
+    const fileScriptName = name + '.js';
+    const fileScriptSize = Math.ceil(getFileSize(fileScriptName)/BYTES_TO_KB);
 
     const manifest = {
         'module': name,
@@ -411,7 +442,6 @@ const writeManifest = (name, arenakey, version, dest, hash) => {
         'sdkBundleFile': `/pilot/sdk/mind-sdk-${sdkVersion}.js`,
         'gameBundleFile': createPath('/', folder, name, version, name + '.js'),
         'assetsBaseUrl': folder,
-        'arenaFileSize': `${fileScriptSize} KB`,
         'systemJsConfig': {
             'map': {
                 'mind-sdk': `mind:mind-sdk@${sdkVersion}`
@@ -421,6 +451,15 @@ const writeManifest = (name, arenakey, version, dest, hash) => {
     if (assets && output && assets.length > 0 && output.length > 0) {
         manifest.assetsBundleFile = createPath('/', name, version, output+'.gz');
     }
+    if (useComponentBundles) {
+        manifest.componentsConfigUrl = `${DEFAULTS.s3folder}/components/${componentVersion}/ComponentsConfig.json`;
+    }
+    manifest.arenaFileSize = `${fileScriptSize} KB`;
+    if (gzip) {
+        const compressedScriptName = name + '.js.gz';
+        const compressedScriptSize = Math.ceil(getFileSize(`${compressedScriptName}`)/BYTES_TO_KB);
+        manifest.compressedFileSize = `${compressedScriptSize} KB`;
+    }
     if (webAppOptions) {
         manifest.webAppOptions = webAppOptions;
     }
@@ -429,9 +468,6 @@ const writeManifest = (name, arenakey, version, dest, hash) => {
     }
     if (overrides) {
         manifest.overrides = overrides;
-    }
-    if (useComponentBundles) {
-        manifest.componentsConfigUrl = `${DEFAULTS.s3folder}/components/${componentVersion}/ComponentsConfig.json`;
     }
 
     try {

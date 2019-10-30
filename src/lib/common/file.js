@@ -135,3 +135,8 @@ export const deleteFolderRecursive = (folderDir) => {
 	  FS.rmdirSync(folderDir);
 	}
   };
+
+export const fileSize = (fileName) => {
+    const stats = FS.statSync(fileName);
+    return stats.size;
+}

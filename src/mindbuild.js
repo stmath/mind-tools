@@ -11,7 +11,8 @@ const optionDefinitions = [
 	{ name: 'upload', alias: 'u', type: String },
 	{ name: 'dest', alias: 'd', type: String, defaultValue: 'dist/' },
 	{ name: 'gameName', alias: 'b', type: Boolean},
-	{ name: 'minify', alias: 'm', type: Boolean}
+	{ name: 'minify', alias: 'm', type: Boolean},
+	{ name: 'gzip', alias: 'g', type: Boolean, defaultValue: false}
 ];
 
 const options = commandLineArgs(optionDefinitions);
@@ -51,12 +52,12 @@ if (options.gameName) {
 		}
 		
 		log('Bundling assets');
-		return bundleAssets(options.dest);
+		return bundleAssets(options.dest, options.gzip);
 	})
 	.then(_ => {
 		log('Bundling game');
 		return getLastCommitHash().then((hash) => {
-			let success = bundleGame(version, options.dest, hash, options.minify);
+			let success = bundleGame(version, options.dest, hash, options.minify, options.gzip);
 			let promise;
 			if (!success) {
 				promise = Promise.reject(new Error('Error while bundling game.'));

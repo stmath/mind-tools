@@ -11,6 +11,7 @@ const optionDefinitions = [
 	{ name: 'version', alias: 'v', type: String },
 	{ name: 'minify', type: Boolean, defaultValue: true},
 	{ name: 'test', alias: 't', type: Boolean, defaultValue: false},
+	{ name: 'gzip', alias: 'g', type: Boolean, defaultValue: false}
 ];
 
 const options = commandLineArgs(optionDefinitions);
@@ -38,7 +39,7 @@ if (!options.skipbundle) {
 	}
 	log(`Bundling Components to ${options.dest}${version}/`);
 	if (version) {
-		let success = bundleComponents(version, options.minify);
+		let success = bundleComponents(version, options.minify, options.gzip);
 		if (!success) new Error('Error while bundling Components.');
 	}
 	else {

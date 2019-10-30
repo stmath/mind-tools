@@ -44,7 +44,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
  * @param {String} dest: Destination directory
  * @returns {Object<Promise>}
  */
-var bundleAssets = exports.bundleAssets = function bundleAssets(dest) {
+var bundleAssets = exports.bundleAssets = function bundleAssets(dest, gzip) {
     var _getPackageJsonFields = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']),
         _getPackageJsonFields2 = _slicedToArray(_getPackageJsonFields, 2),
         assets = _getPackageJsonFields2[0],
@@ -56,6 +56,12 @@ var bundleAssets = exports.bundleAssets = function bundleAssets(dest) {
         var mkdirRes = (0, _file.mkdir)(destPath.substr(0, destPath.lastIndexOf('/')));
         if (mkdirRes.ok) {
             ret = (0, _nectar2.default)(assets, destPath).then(function (_) {
+                if (gzip) {
+                    logFn('Compress asset tar file ');
+                    var spawn = _child_process2.default.spawnSync;
+                    var zipResult = spawn('gzip', ['-f', '' + destPath], { stdio: "inherit" });
+                    if (!zipResult.error && zipResult.status === 0) logFn('Assets - Compression completed');else logFn('Assets - Compression failed');
+                }
                 return true;
             }).catch(function (error) {
                 logFn('Error on bundle assets ' + error.message);
@@ -68,6 +74,7 @@ var bundleAssets = exports.bundleAssets = function bundleAssets(dest) {
     } else {
         logFn('No assets field on package.json. mind.bundle-assets.{assets | output}');
     }
+
     return ret;
 };
 
@@ -78,7 +85,7 @@ var bundleAssets = exports.bundleAssets = function bundleAssets(dest) {
  * @param {string/number} version: Game version
  * @returns {boolean}: True if succeeds
  */
-var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash, minify) {
+var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash, minify, gzip) {
     var name = getPackageJsonField('mind.name');
     var ret = false;
     if (typeof name === 'string' && name.length > 0) {
@@ -115,8 +122,14 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash, m
 
             var res = spawn(command, ['bundle', bundleCommand, dest + name + '.js'].concat(extraParams), { stdio: "inherit" });
             if (!res.error && res.status === 0) {
+                if (gzip) {
+                    logFn('Compress bundled javascript file. Note: this will keep the original file');
+                    var zipResult = spawn('gzip', ['-kf', dest + name + '.js'], { stdio: "inherit" });
+                    if (!zipResult.error && zipResult.status === 0) logFn('Compression completed');else logFn('Compression failed');
+                }
+
                 logFn('Writing manifest ./manifest.json');
-                writeManifest(name, modulePath, version, dest, hash);
+                writeManifest(name, modulePath, version, dest, hash, useComponentBundles, gzip);
                 ret = true;
             } else {
                 logFn('Error: Jspm finish with status ' + res.status + ' and error: ' + res.error + '.');
@@ -131,8 +144,7 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash, m
 };
 
 var getFileSize = function getFileSize(gameName) {
-    var bundlejs = gameName + '.js';
-    var filePath = (0, _file.createPath)('dist', bundlejs);
+    var filePath = (0, _file.createPath)('dist', gameName);
     var stats = _fs2.default.statSync(filePath);
     return stats.size;
 };
@@ -177,6 +189,7 @@ var isVersionAfter = function isVersionAfter(testVersion, targetVersion) {
  */
 var bundleComponents = exports.bundleComponents = function bundleComponents(version) {
     var minify = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
+    var gzip = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
 
     var success = true;
     // determine all the components that can be bundled from this repo
@@ -232,6 +245,11 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
             // check the result of the bundling
             if (!res.error && res.status === 0) {
                 logFn('Bundled component to: ' + bundleResult);
+                if (gzip) {
+                    logFn('Compress bundled javascript file. Note: this will keep the original file');
+                    var zipResult = spawn('gzip', ['-kf', '' + bundleResult], { stdio: "inherit" });
+                    if (!zipResult.error && zipResult.status === 0) logFn('Compression completed');else logFn('Compression failed');
+                }
             } else {
                 // if there was an error, break from the bundling loop
                 logFn('Error writing bundle: ' + bundleResult);
@@ -250,7 +268,7 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
         }
 
         // bundle the assets that are related to this component as signified by properties in the package.json
-        var assetBundle = bundleComponentAssets(componentInfo, version);
+        var assetBundle = bundleComponentAssets(componentInfo, version, gzip);
         if (assetBundle) bundledAssets.push(assetBundle);
     }
     // if every component bundled properly, then generate a json that holds neede configuration info
@@ -259,7 +277,7 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
     return success;
 };
 
-var bundleComponentAssets = function bundleComponentAssets(componentInfo, version) {
+var bundleComponentAssets = function bundleComponentAssets(componentInfo, version, gzip) {
     // check if this component requires asset bundling
     var assetsSrc = componentInfo.assets;
     if (!assetsSrc) return;
@@ -274,6 +292,14 @@ var bundleComponentAssets = function bundleComponentAssets(componentInfo, versio
 
     // call to nectar to bundle the assets
     (0, _nectar2.default)(assetsSrc, bundleName, { cwd: assetsDirectory });
+
+    if (gzip) {
+        logFn('Compress asset tar file');
+        var spawn = _child_process2.default.spawnSync;
+        var zipResult = spawn('gzip', ['-f', '' + bundleName], { stdio: "inherit" });
+        if (!zipResult.error && zipResult.status === 0) logFn('Assets - Compression completed');else logFn('Assets - Compression failed');
+    }
+
     return {
         name: componentInfo.name,
         relativePath: componentInfo.relativeAssetPath,
@@ -427,7 +453,7 @@ var getBundleName = exports.getBundleName = function getBundleName() {
     return getPackageJsonField('mind.name');
 };
 
-var writeManifest = function writeManifest(name, arenakey, version, dest, hash) {
+var writeManifest = function writeManifest(name, arenakey, version, dest, hash, useComponentBundles, gzip) {
     var sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
     var folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
 
@@ -441,10 +467,10 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash) 
     var overrides = getPackageJsonField('mind.overrides');
     var buildDate = (0, _momentTimezone2.default)().tz('America/Los_Angeles').format();
     var componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
-    var useComponentBundles = getPackageJsonField('mind.useComponentBundles');
 
     var BYTES_TO_KB = 1000;
-    var fileScriptSize = Math.ceil(getFileSize(name) / BYTES_TO_KB);
+    var fileScriptName = name + '.js';
+    var fileScriptSize = Math.ceil(getFileSize(fileScriptName) / BYTES_TO_KB);
 
     var manifest = {
         'module': name,
@@ -455,7 +481,6 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash) 
         'sdkBundleFile': '/pilot/sdk/mind-sdk-' + sdkVersion + '.js',
         'gameBundleFile': (0, _file.createPath)('/', folder, name, version, name + '.js'),
         'assetsBaseUrl': folder,
-        'arenaFileSize': fileScriptSize + ' KB',
         'systemJsConfig': {
             'map': {
                 'mind-sdk': 'mind:mind-sdk@' + sdkVersion
@@ -465,6 +490,15 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash) 
     if (assets && output && assets.length > 0 && output.length > 0) {
         manifest.assetsBundleFile = (0, _file.createPath)('/', name, version, output + '.gz');
     }
+    if (useComponentBundles) {
+        manifest.componentsConfigUrl = DEFAULTS.s3folder + '/components/' + componentVersion + '/ComponentsConfig.json';
+    }
+    manifest.arenaFileSize = fileScriptSize + ' KB';
+    if (gzip) {
+        var compressedScriptName = name + '.js.gz';
+        var compressedScriptSize = Math.ceil(getFileSize('' + compressedScriptName) / BYTES_TO_KB);
+        manifest.compressedFileSize = compressedScriptSize + ' KB';
+    }
     if (webAppOptions) {
         manifest.webAppOptions = webAppOptions;
     }
@@ -473,9 +507,6 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash) 
     }
     if (overrides) {
         manifest.overrides = overrides;
-    }
-    if (useComponentBundles) {
-        manifest.componentsConfigUrl = DEFAULTS.s3folder + '/components/' + componentVersion + '/ComponentsConfig.json';
     }
 
     try {

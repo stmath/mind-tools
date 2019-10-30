@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
 	value: true
 });
-exports.deleteFolderRecursive = exports.mv = exports.mkdir = exports.createPath = exports.getJsonFile = exports.contentType = undefined;
+exports.fileSize = exports.deleteFolderRecursive = exports.mv = exports.mkdir = exports.createPath = exports.getJsonFile = exports.contentType = undefined;
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
@@ -146,4 +146,9 @@ var deleteFolderRecursive = exports.deleteFolderRecursive = function deleteFolde
 		});
 		_fs2.default.rmdirSync(folderDir);
 	}
+};
+
+var fileSize = exports.fileSize = function fileSize(fileName) {
+	var stats = _fs2.default.statSync(fileName);
+	return stats.size;
 };
