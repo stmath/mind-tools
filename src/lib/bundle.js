@@ -63,7 +63,7 @@ export const bundleGame = (version, dest, hash) => {
             
             // component bundling is the default behavior on games using minComponentBundles
             let useComponentBundles = getPackageJsonField('mind.useComponentBundles');
-            if (!useComponentBundles) {
+            if (useComponentBundles === undefined) {
                 // if not explicitly opting-in to component bundles, then check component version
                 // as of 0.7.0 arenas will use component bundles by default
                 const minComponentBundles = '0.7.0';
