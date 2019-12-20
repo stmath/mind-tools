@@ -437,7 +437,7 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash, 
         'version': version,
         'buildDate': buildDate,
         'commit': hash,
-        'sdkBundleFile': '/pilot/sdk/mind-sdk-' + sdkVersion + '.js',
+        'sdkBundleFile': '/Content_HTML5/mind-sdk/mind-sdk-' + sdkVersion + '.js',
         'gameBundleFile': (0, _file.createPath)('/', folder, name, version, name + '.js'),
         'assetsBaseUrl': folder,
         'systemJsConfig': {
