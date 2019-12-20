@@ -56,7 +56,10 @@ export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, 
 			log('Bundling.');
 			const bundleFileName = `${bundleName}-${tag}.js`;
 			log(`Writing ${bundleFileName}`);
-			status = spawn(command, ['bundle', `${packageName}/*`, bundleFileName].concat(extraParams), {stdio: 'inherit'});
+
+			// mind-sdk requires a '/**/*' as a suffix, in order to bundle all files
+			status = spawn(command, ['bundle', `${packageName}${(packageName === 'mind-sdk') ? '/**/*' : '/*'}`, bundleFileName].concat(extraParams), {stdio: 'inherit'});
+
 			if (!status.error && status.status === 0) {
 				process.chdir(baseFolder);
 				mkdir(createPath(dest));
