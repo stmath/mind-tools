@@ -295,6 +295,19 @@ var extractBundlesFromConfig = function extractBundlesFromConfig() {
     return bundlesStr.replace('bundles', '"bundles"');
 };
 
+var extractFromConfig = function extractFromConfig() {
+    var keyword = '';
+    // This function will read the config.js for the components and extract the "bundles" property that was created via the --inject command
+    var filePath = _path2.default.join("./", 'config.js');
+    var data = _fs2.default.readFileSync(filePath, { encoding: 'utf-8' });
+    var bundleIdx = data.indexOf('(') + 1;
+    var subStr = data.slice(bundleIdx);
+    var endIdx = subStr.indexOf(')');
+    var bundlesStr = data.slice(bundleIdx, bundleIdx + endIdx);
+    bundlesStr = bundlesStr.replace(/([{,])(\s*)([A-Za-z0-9_\-]+?)\s*:/g, '$1"$3":'); // add double quotes to keys
+    return bundlesStr;
+};
+
 var uploadBundleComponents = exports.uploadBundleComponents = function uploadBundleComponents(version) {
     var promise = void 0;
     var uploadPromises = [];
@@ -418,7 +431,7 @@ var getBundleName = exports.getBundleName = function getBundleName() {
 };
 
 var writeManifest = function writeManifest(name, arenakey, version, dest, hash, useComponentBundles) {
-    var sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
+    var sdkVersion = getTagFromMapString(getConfigJsField('map.mind-sdk')); // getPackageJsonField('jspm.dependencies.mind-sdk');
     var folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
 
     var _getPackageJsonFields3 = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']),
@@ -469,6 +482,16 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash, 
     }
 };
 
+var getFieldFromObj = function getFieldFromObj(obj, field) {
+    var retObj = obj;
+    if (typeof field === 'string' && field.length > 0) {
+        field.split('.').forEach(function (p) {
+            retObj = retObj && retObj[p];
+        });
+    }
+    return retObj;
+};
+
 var getPackageJsonField = function getPackageJsonField(field) {
     if (!getPackageJsonField.cache) {
         getPackageJsonField.cache = (0, _file.getJsonFile)('package.json');
@@ -480,6 +503,34 @@ var getPackageJsonField = function getPackageJsonField(field) {
         });
     }
     return retObj;
+};
+
+var getTagFromMapString = function getTagFromMapString() {
+    var mapString = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
+
+    var out = void 0;
+
+    if (typeof mapString === 'string') {
+        var splitArr = mapString.split('@');
+        if (splitArr.length > 1) {
+            out = splitArr[1];
+        }
+    }
+
+    return out;
+};
+
+var getConfigJsField = function getConfigJsField(field) {
+    var out = '';
+    try {
+        var mapStr = extractFromConfig();
+        var mapObj = JSON.parse('' + mapStr);
+        out = getFieldFromObj(mapObj, field);
+    } catch (e) {
+        console.warn(e);
+    }
+
+    return out;
 };
 
 var getPackageJsonFields = function getPackageJsonFields() {
