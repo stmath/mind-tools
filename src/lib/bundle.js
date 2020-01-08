@@ -267,7 +267,7 @@ const extractBundlesFromConfig = () => {
 }
 
 const extractFromConfigJS = () => {
-    // This function will read the config.js for the components and extract the "bundles" property that was created via the --inject command
+    // This function will read the config.js and extract all setting inside the config parentheses "config(...)"
     let filePath = path.join("./", 'config.js');
     let data = FS.readFileSync(filePath, {encoding: 'utf-8'} );
     let bundleIdx = data.indexOf(`(`) + 1;

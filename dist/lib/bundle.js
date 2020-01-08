@@ -295,9 +295,8 @@ var extractBundlesFromConfig = function extractBundlesFromConfig() {
     return bundlesStr.replace('bundles', '"bundles"');
 };
 
-var extractFromConfig = function extractFromConfig() {
-    var keyword = '';
-    // This function will read the config.js for the components and extract the "bundles" property that was created via the --inject command
+var extractFromConfigJS = function extractFromConfigJS() {
+    // This function will read the config.js and extract all setting inside the config parentheses "config(...)"
     var filePath = _path2.default.join("./", 'config.js');
     var data = _fs2.default.readFileSync(filePath, { encoding: 'utf-8' });
     var bundleIdx = data.indexOf('(') + 1;
@@ -305,7 +304,7 @@ var extractFromConfig = function extractFromConfig() {
     var endIdx = subStr.indexOf(')');
     var bundlesStr = data.slice(bundleIdx, bundleIdx + endIdx);
     bundlesStr = bundlesStr.replace(/([{,])(\s*)([A-Za-z0-9_\-]+?)\s*:/g, '$1"$3":'); // add double quotes to keys
-    return bundlesStr;
+    return bundlesStr || '{}';
 };
 
 var uploadBundleComponents = exports.uploadBundleComponents = function uploadBundleComponents(version) {
@@ -521,16 +520,16 @@ var getTagFromMapString = function getTagFromMapString() {
 };
 
 var getConfigJsField = function getConfigJsField(field) {
-    var out = '';
+    var outVal = void 0;
     try {
-        var mapStr = extractFromConfig();
-        var mapObj = JSON.parse('' + mapStr);
-        out = getFieldFromObj(mapObj, field);
+        var configJSON = extractFromConfigJS();
+        var configObj = JSON.parse('' + configJSON);
+        outVal = getFieldFromObj(configObj, field);
     } catch (e) {
         console.warn(e);
     }
 
-    return out;
+    return outVal;
 };
 
 var getPackageJsonFields = function getPackageJsonFields() {
