@@ -83,7 +83,10 @@ function bundlePkg(packageName, tag, _ref) {
 			log('Bundling.');
 			var bundleFileName = bundleName + '-' + tag + '.js';
 			log('Writing ' + bundleFileName);
-			status = spawn(command, ['bundle', packageName + '/*', bundleFileName].concat(extraParams), { stdio: 'inherit' });
+
+			// mind-sdk requires a '/**/*' as a suffix, in order to bundle all files
+			status = spawn(command, ['bundle', '' + packageName + (packageName === 'mind-sdk' ? '/**/*' : '/*'), bundleFileName].concat(extraParams), { stdio: 'inherit' });
+
 			if (!status.error && status.status === 0) {
 				process.chdir(baseFolder);
 				(0, _file.mkdir)((0, _file.createPath)(dest));
