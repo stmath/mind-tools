@@ -266,6 +266,18 @@ const extractBundlesFromConfig = () => {
     return bundlesStr.replace('bundles', '"bundles"');
 }
 
+const extractFromConfigJS = () => {
+    // This function will read the config.js and extract all setting inside the config parentheses "config(...)"
+    let filePath = path.join("./", 'config.js');
+    let data = FS.readFileSync(filePath, {encoding: 'utf-8'} );
+    let bundleIdx = data.indexOf(`(`) + 1;
+    let subStr = data.slice(bundleIdx);
+    let endIdx = subStr.indexOf(')');
+    let bundlesStr = data.slice(bundleIdx, bundleIdx + endIdx);
+    bundlesStr = bundlesStr.replace(/([{,])(\s*)([A-Za-z0-9_\-]+?)\s*:/g, '$1"$3":'); // add double quotes to keys
+    return bundlesStr || '{}';
+}
+
 export const uploadBundleComponents = (version) => {
     let promise;
     let uploadPromises = [];
@@ -380,7 +392,7 @@ export const getBundleName = () => getPackageJsonField('mind.name');
 
 
 const writeManifest = (name, arenakey, version, dest, hash, useComponentBundles) => {
-    const sdkVersion = getPackageJsonField('jspm.dependencies.mind-sdk');
+    const sdkVersion = getTagFromMapString(getConfigJsField('map.mind-sdk')) // getPackageJsonField('jspm.dependencies.mind-sdk');
     const folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
     const [assets, output] = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']);
     const webAppOptions = getPackageJsonField('mind.webAppOptions');
@@ -427,6 +439,18 @@ const writeManifest = (name, arenakey, version, dest, hash, useComponentBundles)
 
 };
 
+const getFieldFromObj = (obj, field) => {
+    let retObj = obj;
+	if (typeof field === 'string' && field.length > 0) {
+		field
+            .split('.')
+            .forEach(p => {
+                retObj = retObj && retObj[p];
+            });
+    }
+	return retObj;
+}
+
 const getPackageJsonField = field => {
 	if (!getPackageJsonField.cache) {
 		getPackageJsonField.cache = getJsonFile('package.json');
@@ -441,6 +465,30 @@ const getPackageJsonField = field => {
     }
 	return retObj;
 };
+
+const getTagFromMapString = (mapString = '') => {
+    let out;
+
+    if (typeof mapString === 'string') {
+        let splitArr = mapString.split('@');
+        if (splitArr.length > 1) {
+            out = splitArr[1];
+        }
+    }
+
+    return out;
+}
+
+const getConfigJsField = field => {
+    let outVal;
+    try {
+        let configJSON = extractFromConfigJS();
+        let configObj = JSON.parse(`${configJSON}`);
+        outVal = getFieldFromObj(configObj, field);
+    } catch (e) { console.warn(e); }
+
+    return outVal;
+}
 
 const getPackageJsonFields = (ns = '', fields = undefined) => {
 	let ret = [];
