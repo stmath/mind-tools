@@ -46,7 +46,7 @@ export const bundleAssets = (dest) => {
  * @param {string/number} version: Game version
  * @returns {boolean}: True if succeeds
  */
-export const bundleGame = (version, dest, hash) => {
+export const bundleGame = (version, dest, hash, bundleOptions) => {
     let name = getPackageJsonField('mind.name');
     let ret = false;
     if (typeof name === 'string' && name.length > 0) {
@@ -77,7 +77,15 @@ export const bundleGame = (version, dest, hash) => {
                 logFn(`Writing bundle without components`);
             }
 
-            const res = spawn(command, ['bundle', bundleCommand, `${dest+name}.js`], {stdio: "inherit"});
+            let extraParams = [];
+            if (bundleOptions.minify) {
+                extraParams.push(`--minify`);
+                if (bundleOptions.noMangle) {
+                    extraParams.push(`--no-mangle`);
+                }
+            }
+
+            const res = spawn(command, ['bundle', bundleCommand, `${dest+name}.js`].concat(extraParams), {stdio: "inherit"});
             if (!res.error && res.status === 0) {
                 logFn(`Writing manifest ./manifest.json`);
                 writeManifest(name, modulePath, version, dest, hash, useComponentBundles);
@@ -132,7 +140,7 @@ const isVersionAfter = (testVersion, targetVersion) => {
  * Used for mind-game-components repo. Bundle each available component and its assets
  * @param {String} version the string to apply to the compiled version of these bundles
  */
-export const bundleComponents = (version, minify = true) => {
+export const bundleComponents = (version, minify = true, noMangle = false) => {
     let success = true;
     // determine all the components that can be bundled from this repo
     const componentsToBundle = getPackageJsonField('mind.componentBundles');
@@ -182,7 +190,12 @@ export const bundleComponents = (version, minify = true) => {
             let extraParams = [];
             extraParams.push('--inject');
             extraParams.push('--skip-source-maps');
-            if(minify) extraParams.push('--minify');
+            if (minify) {
+                extraParams.push('--minify');
+                if (noMangle) {
+                    extraParams.push('--no-mangle');
+                }
+            }
             // perform the bundle command
             const res = spawn(command, ['bundle', bundleCommand, bundleResult].concat(extraParams), {stdio: "inherit"});
             // check the result of the bundling

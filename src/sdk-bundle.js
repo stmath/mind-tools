@@ -8,7 +8,8 @@ const optionDefinitions = [
 	{ name: 'wfolder', alias: 'w', type: String, defaultValue: 'mind-api-client-library/' }, // Working directory
 	{ name: 'source-map', alias: 's', type: Boolean}, // Add source map
 	{ name: 'no-minify', alias: 'n', type: Boolean}, // No minify
-	{ name: 'skip-install', alias: 'b', type: Boolean} // Skip install
+	{ name: 'skip-install', alias: 'b', type: Boolean}, // Skip install
+	{ name: 'no-mangle', type: Boolean}
 ];
 
 const options = commandLineArgs(optionDefinitions);
@@ -17,7 +18,8 @@ const bundlePkgOptions = {
 	wfolder: options.wfolder,
 	sourceMap: options['source-map'],
 	noMinify: options['no-minify'],
-	skipInstall: options['skip-install']
+	skipInstall: options['skip-install'],
+	noMangle: options['no-mangle']
 };
 
 setLogHandler(console.log);
