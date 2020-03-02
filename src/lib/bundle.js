@@ -64,10 +64,9 @@ export const bundleGame = (version, dest, hash, bundleOptions) => {
             let bundleCommand = `${modulePath} - mind-sdk/**/* - mind-game-components/**/*`;
 
             let extraParams = [];
+            // apply extra parameters for bundling the arena
             if (bundleOptions.minify) {
                 extraParams.push(`--minify`);
-                // jspm bundle mangles by default when minify is turned on
-                // check if the mangle option should be turned off
                 if (bundleOptions.noMangle) {
                     extraParams.push(`--no-mangle`);
                 }
@@ -128,7 +127,7 @@ const isVersionAfter = (testVersion, targetVersion) => {
  * Used for mind-game-components repo. Bundle each available component and its assets
  * @param {String} version the string to apply to the compiled version of these bundles
  */
-export const bundleComponents = (version, minify = true, noMangle = false) => {
+export const bundleComponents = (version, bundleOptions) => {
     let success = true;
     // determine all the components that can be bundled from this repo
     const componentsToBundle = getPackageJsonField('mind.componentBundles');
@@ -142,8 +141,6 @@ export const bundleComponents = (version, minify = true, noMangle = false) => {
     let componentNames = Object.keys(componentsToBundle);
     let bundledAssets = [];
     let previousComponents = [];
-
-    if(minify) logFn('Bundle files will be minified');
 
     for (let iter = 0; iter < componentNames.length; iter++) {
         let name = componentNames[iter];
@@ -178,9 +175,10 @@ export const bundleComponents = (version, minify = true, noMangle = false) => {
             let extraParams = [];
             extraParams.push('--inject');
             extraParams.push('--skip-source-maps');
-            if (minify) {
+            // apply extra parameters for bundling the arena
+            if (!bundleOptions.noMinify) {
                 extraParams.push('--minify');
-                if (noMangle) {
+                if (bundleOptions.noMangle) {
                     extraParams.push('--no-mangle');
                 }
             }

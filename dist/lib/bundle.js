@@ -96,10 +96,9 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash, b
             var bundleCommand = modulePath + ' - mind-sdk/**/* - mind-game-components/**/*';
 
             var extraParams = [];
+            // apply extra parameters for bundling the arena
             if (bundleOptions.minify) {
                 extraParams.push('--minify');
-                // jspm bundle mangles by default when minify is turned on
-                // check if the mangle option should be turned off
                 if (bundleOptions.noMangle) {
                     extraParams.push('--no-mangle');
                 }
@@ -160,10 +159,7 @@ var isVersionAfter = function isVersionAfter(testVersion, targetVersion) {
  * Used for mind-game-components repo. Bundle each available component and its assets
  * @param {String} version the string to apply to the compiled version of these bundles
  */
-var bundleComponents = exports.bundleComponents = function bundleComponents(version) {
-    var minify = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
-    var noMangle = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
-
+var bundleComponents = exports.bundleComponents = function bundleComponents(version, bundleOptions) {
     var success = true;
     // determine all the components that can be bundled from this repo
     var componentsToBundle = getPackageJsonField('mind.componentBundles');
@@ -177,8 +173,6 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
     var componentNames = Object.keys(componentsToBundle);
     var bundledAssets = [];
     var previousComponents = [];
-
-    if (minify) logFn('Bundle files will be minified');
 
     for (var iter = 0; iter < componentNames.length; iter++) {
         var name = componentNames[iter];
@@ -213,9 +207,10 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
             var extraParams = [];
             extraParams.push('--inject');
             extraParams.push('--skip-source-maps');
-            if (minify) {
+            // apply extra parameters for bundling the arena
+            if (!bundleOptions.noMinify) {
                 extraParams.push('--minify');
-                if (noMangle) {
+                if (bundleOptions.noMangle) {
                     extraParams.push('--no-mangle');
                 }
             }

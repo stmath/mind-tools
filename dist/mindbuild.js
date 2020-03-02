@@ -18,6 +18,10 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 var optionDefinitions = [{ name: 'test', type: Boolean, defaultValue: false }, { name: 'tag', type: Boolean }, { name: 'upload', alias: 'u', type: String }, { name: 'dest', alias: 'd', type: String, defaultValue: 'dist/' }, { name: 'gameName', alias: 'b', type: Boolean }, { name: 'minify', alias: 'm', type: Boolean }, { name: 'no-mangle', alias: 'n', type: Boolean }];
 
 var options = (0, _commandLineArgs2.default)(optionDefinitions);
+var bundlePkgOptions = {
+	minify: options['minify'],
+	noMangle: options['no-mangle']
+};
 var log = console.log;
 
 (0, _bundle.setLogHandler)(log);
@@ -38,11 +42,6 @@ if (options.gameName) {
 			process.exit(1);
 		}
 	}
-
-	var bundlePkgOptions = {
-		minify: options['minify'],
-		noMangle: options['no-mangle']
-	};
 
 	var version = void 0;
 	(0, _file.mkdir)(options.dest);

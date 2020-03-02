@@ -15,9 +15,13 @@ var _test = require('./lib/test');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var optionDefinitions = [{ name: 'skipbundle', alias: 's', type: Boolean }, { name: 'dest', alias: 'd', type: String, defaultValue: 'components/' }, { name: 'version', alias: 'v', type: String }, { name: 'test', alias: 't', type: Boolean, defaultValue: false }, { name: 'minify', alias: 'm', type: Boolean, defaultValue: true }, { name: 'no-mangle', alias: 'n', type: Boolean, defaultValue: false }];
+var optionDefinitions = [{ name: 'skipbundle', alias: 's', type: Boolean }, { name: 'dest', alias: 'd', type: String, defaultValue: 'components/' }, { name: 'version', alias: 'v', type: String }, { name: 'test', alias: 't', type: Boolean }, { name: 'no-minify', alias: 'm', type: Boolean }, { name: 'no-mangle', alias: 'n', type: Boolean }];
 
 var options = (0, _commandLineArgs2.default)(optionDefinitions);
+var bundlePkgOptions = {
+	noMinify: options['no-minify'],
+	noMangle: options['no-mangle']
+};
 var log = console.log;
 
 (0, _bundle.setLogHandler)(log);
@@ -42,7 +46,7 @@ if (!options.skipbundle) {
 	}
 	log('Bundling Components to ' + options.dest + version + '/');
 	if (version) {
-		var success = (0, _bundle.bundleComponents)(version, options.minify, options.noMangle);
+		var success = (0, _bundle.bundleComponents)(version, bundlePkgOptions);
 		if (!success) new Error('Error while bundling Components.');
 	} else {
 		new Error('Unable to apply a version.');

@@ -13,9 +13,9 @@ var optionDefinitions = [{ name: 'tag', alias: 't', type: String }, // Tag (Requ
 { name: 'dest', alias: 'd', type: String, defaultValue: 'dist/' }, // Dist directory
 { name: 'wfolder', alias: 'w', type: String, defaultValue: 'mind-api-client-library/' }, // Working directory
 { name: 'source-map', alias: 's', type: Boolean }, // Add source map
-{ name: 'no-minify', alias: 'n', type: Boolean }, // No minify
 { name: 'skip-install', alias: 'b', type: Boolean }, // Skip install
-{ name: 'no-mangle', type: Boolean }];
+{ name: 'no-minify', alias: 'm', type: Boolean }, // No minify
+{ name: 'no-mangle', alias: 'n', type: Boolean }];
 
 var options = (0, _commandLineArgs2.default)(optionDefinitions);
 var bundlePkgOptions = {

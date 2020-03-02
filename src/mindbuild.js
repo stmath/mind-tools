@@ -16,6 +16,10 @@ const optionDefinitions = [
 ];
 
 const options = commandLineArgs(optionDefinitions);
+const bundlePkgOptions = {
+	minify: options['minify'],
+	noMangle: options['no-mangle']
+};
 const log = console.log;
 
 setLogHandler(log);
@@ -36,11 +40,6 @@ if (options.gameName) {
 			process.exit(1);
 		}
 	} 
-
-	const bundlePkgOptions = {
-		minify: options['minify'],
-		noMangle: options['no-mangle']
-	};
 
 	let version;
 	mkdir(options.dest);
