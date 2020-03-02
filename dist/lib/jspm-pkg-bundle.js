@@ -48,7 +48,8 @@ function bundlePkg(packageName, tag, _ref) {
 	    wfolder = _ref.wfolder,
 	    dest = _ref.dest,
 	    bundleName = _ref.bundleName,
-	    ns = _ref.ns;
+	    ns = _ref.ns,
+	    noMangle = _ref.noMangle;
 
 	var status = { status: 0, error: false };
 	if (!checkJspm()) {
@@ -79,6 +80,9 @@ function bundlePkg(packageName, tag, _ref) {
 			}
 			if (!noMinify) {
 				extraParams.push('--minify');
+				if (noMangle) {
+					extraParams.push('--no-mangle');
+				}
 			}
 			log('Bundling.');
 			var bundleFileName = bundleName + '-' + tag + '.js';

@@ -14,8 +14,8 @@ var optionDefinitions = [{ name: 'tag', alias: 't', type: String }, // Tag (Requ
 { name: 'wfolder', alias: 'w', type: String, defaultValue: 'mind-api-client-library/' }, // Working directory
 { name: 'source-map', alias: 's', type: Boolean }, // Add source map
 { name: 'no-minify', alias: 'n', type: Boolean }, // No minify
-{ name: 'skip-install', alias: 'b', type: Boolean // Skip install
-}];
+{ name: 'skip-install', alias: 'b', type: Boolean }, // Skip install
+{ name: 'no-mangle', type: Boolean }];
 
 var options = (0, _commandLineArgs2.default)(optionDefinitions);
 var bundlePkgOptions = {
@@ -23,7 +23,8 @@ var bundlePkgOptions = {
 	wfolder: options.wfolder,
 	sourceMap: options['source-map'],
 	noMinify: options['no-minify'],
-	skipInstall: options['skip-install']
+	skipInstall: options['skip-install'],
+	noMangle: options['no-mangle']
 };
 
 (0, _jspmPkgBundle.setLogHandler)(console.log);

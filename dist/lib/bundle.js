@@ -78,7 +78,7 @@ var bundleAssets = exports.bundleAssets = function bundleAssets(dest) {
  * @param {string/number} version: Game version
  * @returns {boolean}: True if succeeds
  */
-var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
+var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash, bundleOptions) {
     var name = getPackageJsonField('mind.name');
     var ret = false;
     if (typeof name === 'string' && name.length > 0) {
@@ -109,7 +109,15 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash) {
                 logFn('Writing bundle without components');
             }
 
-            var res = spawn(command, ['bundle', bundleCommand, dest + name + '.js'], { stdio: "inherit" });
+            var extraParams = [];
+            if (bundleOptions.minify) {
+                extraParams.push('--minify');
+                if (bundleOptions.noMangle) {
+                    extraParams.push('--no-mangle');
+                }
+            }
+
+            var res = spawn(command, ['bundle', bundleCommand, dest + name + '.js'].concat(extraParams), { stdio: "inherit" });
             if (!res.error && res.status === 0) {
                 logFn('Writing manifest ./manifest.json');
                 writeManifest(name, modulePath, version, dest, hash, useComponentBundles);
@@ -166,6 +174,7 @@ var isVersionAfter = function isVersionAfter(testVersion, targetVersion) {
  */
 var bundleComponents = exports.bundleComponents = function bundleComponents(version) {
     var minify = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
+    var noMangle = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
 
     var success = true;
     // determine all the components that can be bundled from this repo
@@ -216,7 +225,12 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
             var extraParams = [];
             extraParams.push('--inject');
             extraParams.push('--skip-source-maps');
-            if (minify) extraParams.push('--minify');
+            if (minify) {
+                extraParams.push('--minify');
+                if (noMangle) {
+                    extraParams.push('--no-mangle');
+                }
+            }
             // perform the bundle command
             var res = spawn(command, ['bundle', bundleCommand, bundleResult].concat(extraParams), { stdio: "inherit" });
             // check the result of the bundling
