@@ -88,30 +88,18 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash, b
             // Exec the global jspm command instead of calling a library function, so we make sure of being using the correct jspm version.
             var command = _os2.default.platform() === 'win32' ? 'jspm.cmd' : 'jspm';
             var modulePath = (0, _file.createPath)(workingDirectory, name, name);
-            logFn('Executing: jspm bundle ' + modulePath + ' - mind-sdk/**/* ' + name + '.js.');
+            logFn('Executing: jspm bundle ' + modulePath + ' - mind-sdk/**/* - mind-game-components/**/* ' + name + '.js.');
             logFn('Writing bundle ./' + name + '.js');
 
-            var bundleCommand = modulePath + ' - mind-sdk/**/* ';
-
-            // component bundling is the default behavior on games using minComponentBundles
-            var useComponentBundles = getPackageJsonField('mind.useComponentBundles');
-            if (useComponentBundles === undefined) {
-                // if not explicitly opting-in to component bundles, then check component version
-                // as of 0.7.0 arenas will use component bundles by default
-                var minComponentBundles = '0.7.0';
-                var componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
-                useComponentBundles = isVersionAfter(componentVersion, minComponentBundles);
-            }
-
-            // subtract component bundles
-            if (useComponentBundles) {
-                bundleCommand = bundleCommand + ' - mind-game-components/**/* ';
-                logFn('Writing bundle without components');
-            }
+            // UPDATE: Phase 2 transition for all games ensures that games are on mind-game-components@0.7.0 or later
+            // this means we can bundle without components by default
+            var bundleCommand = modulePath + ' - mind-sdk/**/* - mind-game-components/**/*';
 
             var extraParams = [];
             if (bundleOptions.minify) {
                 extraParams.push('--minify');
+                // jspm bundle mangles by default when minify is turned on
+                // check if the mangle option should be turned off
                 if (bundleOptions.noMangle) {
                     extraParams.push('--no-mangle');
                 }
@@ -120,7 +108,7 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash, b
             var res = spawn(command, ['bundle', bundleCommand, dest + name + '.js'].concat(extraParams), { stdio: "inherit" });
             if (!res.error && res.status === 0) {
                 logFn('Writing manifest ./manifest.json');
-                writeManifest(name, modulePath, version, dest, hash, useComponentBundles);
+                writeManifest(name, modulePath, version, dest, hash);
                 ret = true;
             } else {
                 logFn('Error: Jspm finish with status ' + res.status + ' and error: ' + res.error + '.');
@@ -443,7 +431,7 @@ var getBundleName = exports.getBundleName = function getBundleName() {
     return getPackageJsonField('mind.name');
 };
 
-var writeManifest = function writeManifest(name, arenakey, version, dest, hash, useComponentBundles) {
+var writeManifest = function writeManifest(name, arenakey, version, dest, hash) {
     var sdkVersion = getTagFromMapString(getConfigJsField('map.mind-sdk')); // getPackageJsonField('jspm.dependencies.mind-sdk');
     var folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
 
@@ -466,6 +454,7 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash, 
         'sdkBundleFile': '/pilot/sdk/mind-sdk-' + sdkVersion + '.js',
         'gameBundleFile': (0, _file.createPath)('/', folder, name, version, name + '.js'),
         'assetsBaseUrl': folder,
+        'componentsConfigUrl': DEFAULTS.s3folder + '/components/' + componentVersion + '/ComponentsConfig.json',
         'systemJsConfig': {
             'map': {
                 'mind-sdk': 'mind:mind-sdk@' + sdkVersion
@@ -483,9 +472,6 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash, 
     }
     if (overrides) {
         manifest.overrides = overrides;
-    }
-    if (useComponentBundles) {
-        manifest.componentsConfigUrl = DEFAULTS.s3folder + '/components/' + componentVersion + '/ComponentsConfig.json';
     }
 
     try {

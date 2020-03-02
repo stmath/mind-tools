@@ -40,7 +40,7 @@ if (options.gameName) {
 	}
 
 	var bundlePkgOptions = {
-		noMinify: options['minify'],
+		minify: options['minify'],
 		noMangle: options['no-mangle']
 	};
 

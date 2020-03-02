@@ -38,7 +38,7 @@ if (options.gameName) {
 	} 
 
 	const bundlePkgOptions = {
-		noMinify: options['minify'],
+		minify: options['minify'],
 		noMangle: options['no-mangle']
 	};
 
