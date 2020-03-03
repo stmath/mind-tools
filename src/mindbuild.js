@@ -10,10 +10,16 @@ const optionDefinitions = [
 	{ name: 'tag', type: Boolean},
 	{ name: 'upload', alias: 'u', type: String },
 	{ name: 'dest', alias: 'd', type: String, defaultValue: 'dist/' },
-	{ name: 'gameName', alias: 'b', type: Boolean}
+	{ name: 'gameName', alias: 'b', type: Boolean},
+	{ name: 'minify', alias: 'm', type: Boolean},
+	{ name: 'no-mangle', alias: 'n', type: Boolean}
 ];
 
 const options = commandLineArgs(optionDefinitions);
+const bundlePkgOptions = {
+	minify: options['minify'],
+	noMangle: options['no-mangle']
+};
 const log = console.log;
 
 setLogHandler(log);
@@ -34,6 +40,7 @@ if (options.gameName) {
 			process.exit(1);
 		}
 	} 
+
 	let version;
 	mkdir(options.dest);
 	getLastTag()
@@ -55,7 +62,7 @@ if (options.gameName) {
 	.then(_ => {
 		log('Bundling game');
 		return getLastCommitHash().then((hash) => {
-			let success = bundleGame(version, options.dest, hash);
+			let success = bundleGame(version, options.dest, hash, bundlePkgOptions);
 			let promise;
 			if (!success) {
 				promise = Promise.reject(new Error('Error while bundling game.'));

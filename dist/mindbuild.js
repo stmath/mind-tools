@@ -15,9 +15,13 @@ var _commandLineArgs2 = _interopRequireDefault(_commandLineArgs);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var optionDefinitions = [{ name: 'test', type: Boolean, defaultValue: false }, { name: 'tag', type: Boolean }, { name: 'upload', alias: 'u', type: String }, { name: 'dest', alias: 'd', type: String, defaultValue: 'dist/' }, { name: 'gameName', alias: 'b', type: Boolean }];
+var optionDefinitions = [{ name: 'test', type: Boolean, defaultValue: false }, { name: 'tag', type: Boolean }, { name: 'upload', alias: 'u', type: String }, { name: 'dest', alias: 'd', type: String, defaultValue: 'dist/' }, { name: 'gameName', alias: 'b', type: Boolean }, { name: 'minify', alias: 'm', type: Boolean }, { name: 'no-mangle', alias: 'n', type: Boolean }];
 
 var options = (0, _commandLineArgs2.default)(optionDefinitions);
+var bundlePkgOptions = {
+	minify: options['minify'],
+	noMangle: options['no-mangle']
+};
 var log = console.log;
 
 (0, _bundle.setLogHandler)(log);
@@ -38,6 +42,7 @@ if (options.gameName) {
 			process.exit(1);
 		}
 	}
+
 	var version = void 0;
 	(0, _file.mkdir)(options.dest);
 	(0, _git.getLastTag)().then(function (res) {
@@ -57,7 +62,7 @@ if (options.gameName) {
 	}).then(function (_) {
 		log('Bundling game');
 		return (0, _git.getLastCommitHash)().then(function (hash) {
-			var success = (0, _bundle.bundleGame)(version, options.dest, hash);
+			var success = (0, _bundle.bundleGame)(version, options.dest, hash, bundlePkgOptions);
 			var promise = void 0;
 			if (!success) {
 				promise = Promise.reject(new Error('Error while bundling game.'));

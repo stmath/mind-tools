@@ -9,11 +9,16 @@ const optionDefinitions = [
 	{ name: 'skipbundle', alias: 's', type: Boolean},
 	{ name: 'dest', alias: 'd', type: String, defaultValue: 'components/' },
 	{ name: 'version', alias: 'v', type: String },
-	{ name: 'minify', type: Boolean, defaultValue: true},
-	{ name: 'test', alias: 't', type: Boolean, defaultValue: false},
+	{ name: 'test', alias: 't', type: Boolean},
+	{ name: 'no-minify', alias: 'm', type: Boolean},
+	{ name: 'no-mangle', alias: 'n', type: Boolean},
 ];
 
 const options = commandLineArgs(optionDefinitions);
+const bundlePkgOptions = {
+	noMinify: options['no-minify'],
+	noMangle: options['no-mangle']
+};
 const log = console.log;
 
 setLogHandler(log);
@@ -38,7 +43,7 @@ if (!options.skipbundle) {
 	}
 	log(`Bundling Components to ${options.dest}${version}/`);
 	if (version) {
-		let success = bundleComponents(version, options.minify);
+		let success = bundleComponents(version, bundlePkgOptions);
 		if (!success) new Error('Error while bundling Components.');
 	}
 	else {

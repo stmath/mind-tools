@@ -22,7 +22,7 @@ let log = _ => {};
  * }
  * @returns {object}: {status: <number>, error: boolean}
  */
-export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, wfolder, dest, bundleName, ns}) {
+export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, wfolder, dest, bundleName, ns, noMangle}) {
 	let status = {status: 0, error: false};
 	if (!checkJspm()) {
 		log('Need jspm installed globally: npm install -g jspm.');
@@ -52,6 +52,9 @@ export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, 
 			}
 			if (!noMinify) {
 				extraParams.push('--minify');
+				if (noMangle) {
+					extraParams.push('--no-mangle');
+				}
 			}
 			log('Bundling.');
 			const bundleFileName = `${bundleName}-${tag}.js`;
