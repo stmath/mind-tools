@@ -446,7 +446,7 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash) 
         'version': version,
         'buildDate': buildDate,
         'commit': hash,
-        'sdkBundleFile': DEFAULTS.s3folder + '/mind-sdk/mind-sdk-' + sdkVersion + '.js',
+        'sdkBundleFile': '/pilot/sdk/mind-sdk-' + sdkVersion + '.js',
         'gameBundleFile': (0, _file.createPath)('/', folder, name, version, name + '.js'),
         'assetsBaseUrl': folder,
         'componentsConfigUrl': DEFAULTS.s3folder + '/components/' + componentVersion + '/ComponentsConfig.json',
