@@ -4,6 +4,7 @@ import {testGame} from './lib/test';
 import {getLastTag, addTag, getLastCommitHash} from './lib/git';
 import {mkdir} from './lib/common/file';
 import commandLineArgs from 'command-line-args';
+import child_process from 'child_process';
 
 const optionDefinitions = [
 	{ name: 'test', type: Boolean, defaultValue: false},
@@ -21,6 +22,8 @@ const bundlePkgOptions = {
 	noMangle: options['no-mangle']
 };
 const log = console.log;
+
+const exec = child_process.execSync;
 
 setLogHandler(log);
 let bundleName = getBundleName();
@@ -62,6 +65,7 @@ if (options.gameName) {
 	.then(_ => {
 		log('Bundling game');
 		return getLastCommitHash().then((hash) => {
+			exec('jspm update', { cwd: './' });
 			let success = bundleGame(version, options.dest, hash, bundlePkgOptions);
 			let promise;
 			if (!success) {

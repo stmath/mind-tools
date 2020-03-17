@@ -13,6 +13,10 @@ var _commandLineArgs = require('command-line-args');
 
 var _commandLineArgs2 = _interopRequireDefault(_commandLineArgs);
 
+var _child_process = require('child_process');
+
+var _child_process2 = _interopRequireDefault(_child_process);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 var optionDefinitions = [{ name: 'test', type: Boolean, defaultValue: false }, { name: 'tag', type: Boolean }, { name: 'upload', alias: 'u', type: String }, { name: 'dest', alias: 'd', type: String, defaultValue: 'dist/' }, { name: 'gameName', alias: 'b', type: Boolean }, { name: 'minify', alias: 'm', type: Boolean }, { name: 'no-mangle', alias: 'n', type: Boolean }];
@@ -23,6 +27,8 @@ var bundlePkgOptions = {
 	noMangle: options['no-mangle']
 };
 var log = console.log;
+
+var exec = _child_process2.default.execSync;
 
 (0, _bundle.setLogHandler)(log);
 var bundleName = (0, _bundle.getBundleName)();
@@ -62,6 +68,7 @@ if (options.gameName) {
 	}).then(function (_) {
 		log('Bundling game');
 		return (0, _git.getLastCommitHash)().then(function (hash) {
+			exec('jspm update', { cwd: './' });
 			var success = (0, _bundle.bundleGame)(version, options.dest, hash, bundlePkgOptions);
 			var promise = void 0;
 			if (!success) {
