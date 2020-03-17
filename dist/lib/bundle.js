@@ -427,7 +427,9 @@ var getBundleName = exports.getBundleName = function getBundleName() {
 };
 
 var writeManifest = function writeManifest(name, arenakey, version, dest, hash) {
+    // grab the sdk and component versions from the config file which may have been updated from the update call - 
     var sdkVersion = getTagFromMapString(getConfigJsField('map.mind-sdk')); // getPackageJsonField('jspm.dependencies.mind-sdk');
+    var componentVersion = getTagFromMapString(getConfigJsField('map.mind-game-components')); //getPackageJsonField('jspm.dependencies.mind-game-components');
     var folder = getPackageJsonField('mind.aws.s3folder') || DEFAULTS.s3folder;
 
     var _getPackageJsonFields3 = getPackageJsonFields('mind.bundle-assets', ['assets', 'output']),
@@ -439,14 +441,13 @@ var writeManifest = function writeManifest(name, arenakey, version, dest, hash) 
     var testHarnessOptions = getPackageJsonField('mind.testHarnessOptions');
     var overrides = getPackageJsonField('mind.overrides');
     var buildDate = (0, _momentTimezone2.default)().tz('America/Los_Angeles').format();
-    var componentVersion = getPackageJsonField('jspm.dependencies.mind-game-components');
     var manifest = {
         'module': name,
         'arenaKey': arenakey,
         'version': version,
         'buildDate': buildDate,
         'commit': hash,
-        'sdkBundleFile': '/pilot/sdk/mind-sdk-' + sdkVersion + '.js',
+        'sdkBundleFile': DEFAULTS.s3folder + '/mind-sdk/mind-sdk-' + sdkVersion + '.js',
         'gameBundleFile': (0, _file.createPath)('/', folder, name, version, name + '.js'),
         'assetsBaseUrl': folder,
         'componentsConfigUrl': DEFAULTS.s3folder + '/components/' + componentVersion + '/ComponentsConfig.json',
