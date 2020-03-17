@@ -406,7 +406,7 @@ const writeManifest = (name, arenakey, version, dest, hash) => {
         'version' : version,
         'buildDate': buildDate,
         'commit': hash,
-        'sdkBundleFile': `/pilot/sdk/mind-sdk-${sdkVersion}.js`,
+        'sdkBundleFile': `${DEFAULTS.s3folder}/mind-sdk/mind-sdk-${sdkVersion}.js`,
         'gameBundleFile': createPath('/', folder, name, version, name + '.js'),
         'assetsBaseUrl': folder,
         'componentsConfigUrl': `${DEFAULTS.s3folder}/components/${componentVersion}/ComponentsConfig.json`,
