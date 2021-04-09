@@ -1,4 +1,4 @@
-import FS from 'fs';
+import FS, { Dir } from 'fs';
 import nectar from 'nectar';
 import child_process from 'child_process';
 import os from 'os';
@@ -74,6 +74,30 @@ export const bundleGame = (version, dest, hash, bundleOptions) => {
 
             const res = spawn(command, ['bundle', bundleCommand, `${dest+name}.js`].concat(extraParams), {stdio: "inherit"});
             if (!res.error && res.status === 0) {
+
+                
+                // define where the bundled assets will be stored
+                const arenaAssetsDir = getPackageJsonField('mind.bundle-assets');
+                logFn('Asset dir: ' + arenaAssetsDir);
+                if (arenaAssetsDir) {
+                    let assetsDirs = arenaAssetsDir["assets"];
+                    let svgFiles = [];
+                    for (let iter = 0; iter < assetsDirs.length; iter++) {
+                        let assetRoot = assetsDirs[iter];
+                        logFn('Asset folder: ' + assetRoot);
+                        let substr = assetRoot.split('*')[0];
+                        const modulePath = createPath(substr);
+                        logFn('Module Path: ' +  modulePath);
+                        svgFiles = svgFiles.concat(extractOutlinesFromFiles(modulePath, 'svg'));
+                    }
+                    if (svgFiles && svgFiles.length > 0) {
+                        // write to JSON
+                        logFn('Write to: ' + dest + ', ' + name);
+                        writeOutlinesToJSON(dest, name, svgFiles);
+                    }
+                }
+            
+
                 logFn(`Writing manifest ./manifest.json`);
                 writeManifest(name, modulePath, version, dest, hash);
                 ret = true;
@@ -88,40 +112,6 @@ export const bundleGame = (version, dest, hash, bundleOptions) => {
     }
     return ret;
 };
-
-/**
- * Check if the given semVer is after the targeted semVer
- * This is used to check if an arena's component version is after the 0.7.0 limit
- * @param {String} testVersion The component version to check 
- * @param {String} targetVersion The component version to target
- */
-const isVersionAfter = (testVersion, targetVersion) => {
-    let testParts = testVersion.split('.');
-    logFn('Test version ' + testVersion);
-    let targetParts = targetVersion.split('.');
-    // iterate over all parts of the testVersion to compare against target
-    for (let iter = 0; iter < testParts.length; iter++) {
-        logFn('Check test version ' + testParts[iter]);
-        // validate that the test is a numeric value
-        if (isNaN(testParts[iter])) {
-            logFn('failed is NaN');
-            return false;
-        }
-        // if there is no matching target version,
-        // then we assume the components is later
-        let targetPart = targetParts[iter];
-        if (!targetPart || isNaN(targetPart)) {
-            logFn('target check ended ' + targetPart);
-            return true;
-        }
-        // if the test part is greater than the target part, then return false
-        if (targetPart > testParts[iter]) {
-            logFn(`failed test: Target-${targetPart} Test-${testParts[iter]}`);
-            return false;
-        }
-    }
-    return true;
-}
 
 /**
  * Used for mind-game-components repo. Bundle each available component and its assets
@@ -214,6 +204,59 @@ export const bundleComponents = (version, bundleOptions) => {
     return success;
 };
 
+const extractOutlineFromString = (fileStr) => {
+    let outlineIndex = fileStr.indexOf('id="outline"');
+    if (outlineIndex > 0) {
+        let endElement = fileStr.indexOf('>', outlineIndex);
+        let startElement = outlineIndex;
+        while (fileStr.charAt(startElement) !== '<') startElement--;
+        let extractedPath = fileStr.slice(startElement, endElement + 1);
+        let doubleQuote = /"/gi;
+        let newline = /(\r\n|\n|\r)/gm
+        extractedPath = extractedPath.replace(doubleQuote, "'");
+        extractedPath = extractedPath.replace(newline, "");
+        return extractedPath;
+    }
+    return null;
+}
+
+const extractOutlinesFromFiles = (path, type, relativeSrc = '') => {
+    let results = FS.readdirSync(path, { withFileTypes: true });
+    let svgs = [];
+    let files = results.filter(file => !file.isDirectory() && file.name.indexOf('.' + type) >= 0);
+    files.forEach (function (file) {
+        let contents = FS.readFileSync(path + '/' + file.name, {encoding: 'utf-8'});
+        let extractedPath = extractOutlineFromString(contents);
+        if (extractedPath) {
+            logFn('Name of src with path: ' + file.name);
+            svgs.push({name: relativeSrc + '/' + file.name, outline: extractedPath});
+        }
+    });
+
+    let folders = results.filter(file => file.isDirectory());
+    folders.forEach(function (folder) {
+        svgs = svgs.concat(extractOutlinesFromFiles(path + '/' + folder.name, type, relativeSrc + '/' + folder.name));
+    });
+    return svgs;
+}
+
+const writeOutlinesToJSON = (filePath, name, svgFiles) => {
+    let outlineJSONStr = '{'
+    for (let iter = 0; iter < svgFiles.length; iter++) {
+        let file = svgFiles[iter];
+        outlineJSONStr += `
+"${file.name}": "${file.outline}"`;
+        if (iter + 1 < svgFiles.length) {
+            outlineJSONStr += ',';
+        }
+    }
+    outlineJSONStr += '}';
+
+    let outlinePath = createPath(filePath, `${name}_Outlines.json`);
+    logFn('write to: ' + outlinePath);
+    FS.writeFileSync(outlinePath, outlineJSONStr);
+}
+
 const bundleComponentAssets = (componentInfo, version) => {
     // check if this component requires asset bundling
     let assetsSrc = componentInfo.assets;
@@ -226,6 +269,14 @@ const bundleComponentAssets = (componentInfo, version) => {
     const bundleDir =  createPath(componentsDir, version, componentInfo.bundleRoot);   // should be 'components/{version}/{componentName}/'
     const bundlePath = createPath(bundleDir, `${componentInfo.name}.tar`);
     const bundleName = path.resolve(`./${bundlePath}`);
+
+
+    logFn('Check ' + assetsDirectory + ' for outline svgs: ');
+    let svgFiles = extractOutlinesFromFiles(assetsDirectory, 'svg');
+    if (svgFiles.length > 0) {
+        writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles);
+    }
+
 
     // call to nectar to bundle the assets
     nectar(assetsSrc, bundleName, {cwd: assetsDirectory});
