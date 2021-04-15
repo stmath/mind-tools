@@ -1,4 +1,4 @@
-import FS, { Dir } from 'fs';
+import FS from 'fs';
 import nectar from 'nectar';
 import child_process from 'child_process';
 import os from 'os';
@@ -222,7 +222,6 @@ const extractOutlinesFromFiles = (path, type, relativeSrc = undefined) => {
         let contents = FS.readFileSync(path + '/' + file.name, {encoding: 'utf-8'});
         let extractedPath = extractOutlineFromString(contents);
         if (extractedPath) {
-            logFn('Name of src with path: ' + file.name);
             let name = (relativeSrc !== undefined) ? relativeSrc + '/' + file.name : path + '/' + file.name;
             name = '/' + name; // relative url format
             svgs.push({name: name, outline: extractedPath});
@@ -243,9 +242,7 @@ const writeOutlinesToJSON = (filePath, name, svgFiles, relativeDir) => {
         let file = svgFiles[iter];
         let fileName = file.name;
         if (relativeDir !== undefined) {
-            console.log('relativeDir: ' + relativeDir);
             let trimmedName = fileName.split('/assets')[1];
-            console.log('trimmed Name: ' + trimmedName);
             fileName = relativeDir + trimmedName;
         }
         outlineJSONStr += `
@@ -257,7 +254,6 @@ const writeOutlinesToJSON = (filePath, name, svgFiles, relativeDir) => {
     outlineJSONStr += '}';
 
     let outlinePath = createPath(filePath, `${name}_Outlines.json`);
-    logFn('write to: ' + outlinePath);
     FS.writeFileSync(outlinePath, outlineJSONStr);
 }
 
@@ -274,8 +270,6 @@ const bundleComponentAssets = (componentInfo, version) => {
     const bundlePath = createPath(bundleDir, `${componentInfo.name}.tar`);
     const bundleName = path.resolve(`./${bundlePath}`);
 
-
-    logFn('Check ' + assetsDirectory + ' for outline svgs: ');
     let svgFiles = extractOutlinesFromFiles(assetsDirectory, 'svg', '');
     if (svgFiles.length > 0) {
         writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles, componentInfo.relativeAssetPath);

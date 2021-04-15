@@ -259,7 +259,6 @@ var extractOutlinesFromFiles = function extractOutlinesFromFiles(path, type) {
         var contents = _fs2.default.readFileSync(path + '/' + file.name, { encoding: 'utf-8' });
         var extractedPath = extractOutlineFromString(contents);
         if (extractedPath) {
-            logFn('Name of src with path: ' + file.name);
             var name = relativeSrc !== undefined ? relativeSrc + '/' + file.name : path + '/' + file.name;
             name = '/' + name; // relative url format
             svgs.push({ name: name, outline: extractedPath });
@@ -282,9 +281,7 @@ var writeOutlinesToJSON = function writeOutlinesToJSON(filePath, name, svgFiles,
         var file = svgFiles[iter];
         var fileName = file.name;
         if (relativeDir !== undefined) {
-            console.log('relativeDir: ' + relativeDir);
             var trimmedName = fileName.split('/assets')[1];
-            console.log('trimmed Name: ' + trimmedName);
             fileName = relativeDir + trimmedName;
         }
         outlineJSONStr += '\n"' + fileName + '": "' + file.outline + '"';
@@ -295,7 +292,6 @@ var writeOutlinesToJSON = function writeOutlinesToJSON(filePath, name, svgFiles,
     outlineJSONStr += '}';
 
     var outlinePath = (0, _file.createPath)(filePath, name + '_Outlines.json');
-    logFn('write to: ' + outlinePath);
     _fs2.default.writeFileSync(outlinePath, outlineJSONStr);
 };
 
@@ -312,7 +308,6 @@ var bundleComponentAssets = function bundleComponentAssets(componentInfo, versio
     var bundlePath = (0, _file.createPath)(bundleDir, componentInfo.name + '.tar');
     var bundleName = _path2.default.resolve('./' + bundlePath);
 
-    logFn('Check ' + assetsDirectory + ' for outline svgs: ');
     var svgFiles = extractOutlinesFromFiles(assetsDirectory, 'svg', '');
     if (svgFiles.length > 0) {
         writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles, componentInfo.relativeAssetPath);
