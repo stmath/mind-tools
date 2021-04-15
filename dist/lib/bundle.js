@@ -91,8 +91,6 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash, b
             logFn('Executing: jspm bundle ' + modulePath + ' - mind-sdk/**/* - mind-game-components/**/* ' + name + '.js.');
             logFn('Writing bundle ./' + name + '.js');
 
-            // UPDATE: Phase 2 transition for all games ensures that games are on mind-game-components@0.7.0 or later
-            // this means we can bundle without components by default
             var bundleCommand = modulePath + ' - mind-sdk/**/* - mind-game-components/**/*';
 
             var extraParams = [];
@@ -106,6 +104,24 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash, b
 
             var res = spawn(command, ['bundle', bundleCommand, dest + name + '.js'].concat(extraParams), { stdio: "inherit" });
             if (!res.error && res.status === 0) {
+                var requiresOutlines = getPackageJsonField('mind.forceRasterizedAssets');
+                if (requiresOutlines) {
+                    logFn('Generate Outlines.json to support forceRasterizedAssets');
+                    var arenaAssetsDir = getPackageJsonField('mind.bundle-assets');
+                    if (arenaAssetsDir) {
+                        // iterate over all asset folders that the arena is bundling
+                        var assetsDirs = arenaAssetsDir["assets"];
+                        var svgFiles = [];
+                        for (var iter = 0; iter < assetsDirs.length; iter++) {
+                            var assetRoot = assetsDirs[iter];
+                            // ignore the 'wildcard' characters, extractOutlinesFromFiles will step through sub folders
+                            var substr = assetRoot.split('*')[0];
+                            var _modulePath = (0, _file.createPath)(substr);
+                            svgFiles = svgFiles.concat(extractOutlinesFromFiles(_modulePath, 'svg'));
+                        }
+                        writeOutlinesToJSON(dest, name, svgFiles);
+                    }
+                }
                 logFn('Writing manifest ./manifest.json');
                 writeManifest(name, modulePath, version, dest, hash);
                 ret = true;
@@ -119,40 +135,6 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash, b
         logFn('No bundle name (mind.name) found in package.json');
     }
     return ret;
-};
-
-/**
- * Check if the given semVer is after the targeted semVer
- * This is used to check if an arena's component version is after the 0.7.0 limit
- * @param {String} testVersion The component version to check 
- * @param {String} targetVersion The component version to target
- */
-var isVersionAfter = function isVersionAfter(testVersion, targetVersion) {
-    var testParts = testVersion.split('.');
-    logFn('Test version ' + testVersion);
-    var targetParts = targetVersion.split('.');
-    // iterate over all parts of the testVersion to compare against target
-    for (var iter = 0; iter < testParts.length; iter++) {
-        logFn('Check test version ' + testParts[iter]);
-        // validate that the test is a numeric value
-        if (isNaN(testParts[iter])) {
-            logFn('failed is NaN');
-            return false;
-        }
-        // if there is no matching target version,
-        // then we assume the components is later
-        var targetPart = targetParts[iter];
-        if (!targetPart || isNaN(targetPart)) {
-            logFn('target check ended ' + targetPart);
-            return true;
-        }
-        // if the test part is greater than the target part, then return false
-        if (targetPart > testParts[iter]) {
-            logFn('failed test: Target-' + targetPart + ' Test-' + testParts[iter]);
-            return false;
-        }
-    }
-    return true;
 };
 
 /**
@@ -246,6 +228,73 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
     return success;
 };
 
+var extractOutlineFromString = function extractOutlineFromString(fileStr) {
+    // check for outline id in both single and double quotes
+    var outlineIndex = fileStr.indexOf('id="outline"');
+    if (outlineIndex < 0) fileStr.indexOf("id='outline'");
+    if (outlineIndex > 0) {
+        var endElement = fileStr.indexOf('/>', outlineIndex);
+        var startElement = outlineIndex;
+        while (fileStr.charAt(startElement) !== '<') {
+            startElement--;
+        }var extractedPath = fileStr.slice(startElement, endElement + 1);
+        var doubleQuote = /"/gi;
+        var newline = /(\r\n|\n|\r)/gm;
+        extractedPath = extractedPath.replace(doubleQuote, "'");
+        extractedPath = extractedPath.replace(newline, "");
+        return extractedPath;
+    }
+    return null;
+};
+
+var extractOutlinesFromFiles = function extractOutlinesFromFiles(path, type) {
+    var relativeSrc = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : undefined;
+
+    var results = _fs2.default.readdirSync(path, { withFileTypes: true });
+    var svgs = [];
+    var files = results.filter(function (file) {
+        return !file.isDirectory() && file.name.indexOf('.' + type) >= 0;
+    });
+    files.forEach(function (file) {
+        var contents = _fs2.default.readFileSync(path + '/' + file.name, { encoding: 'utf-8' });
+        var extractedPath = extractOutlineFromString(contents);
+        if (extractedPath) {
+            var name = relativeSrc !== undefined ? relativeSrc + '/' + file.name : path + '/' + file.name;
+            name = '/' + name; // relative url format
+            svgs.push({ name: name, outline: extractedPath });
+        }
+    });
+
+    var folders = results.filter(function (file) {
+        return file.isDirectory();
+    });
+    folders.forEach(function (folder) {
+        var updatedRelativeSrc = relativeSrc !== undefined ? relativeSrc + '/' + folder.name : undefined;
+        svgs = svgs.concat(extractOutlinesFromFiles(path + '/' + folder.name, type, updatedRelativeSrc));
+    });
+    return svgs;
+};
+
+var writeOutlinesToJSON = function writeOutlinesToJSON(filePath, name, svgFiles, relativeDir) {
+    var outlineJSONStr = '{';
+    for (var iter = 0; iter < svgFiles.length; iter++) {
+        var file = svgFiles[iter];
+        var fileName = file.name;
+        if (relativeDir !== undefined) {
+            var trimmedName = fileName.split('/assets')[1];
+            fileName = relativeDir + trimmedName;
+        }
+        outlineJSONStr += '\n"' + fileName + '": "' + file.outline + '"';
+        if (iter + 1 < svgFiles.length) {
+            outlineJSONStr += ',';
+        }
+    }
+    outlineJSONStr += '}';
+
+    var outlinePath = (0, _file.createPath)(filePath, name + '_Outlines.json');
+    _fs2.default.writeFileSync(outlinePath, outlineJSONStr);
+};
+
 var bundleComponentAssets = function bundleComponentAssets(componentInfo, version) {
     // check if this component requires asset bundling
     var assetsSrc = componentInfo.assets;
@@ -258,6 +307,11 @@ var bundleComponentAssets = function bundleComponentAssets(componentInfo, versio
     var bundleDir = (0, _file.createPath)(componentsDir, version, componentInfo.bundleRoot); // should be 'components/{version}/{componentName}/'
     var bundlePath = (0, _file.createPath)(bundleDir, componentInfo.name + '.tar');
     var bundleName = _path2.default.resolve('./' + bundlePath);
+
+    var svgFiles = extractOutlinesFromFiles(assetsDirectory, 'svg', '');
+    if (svgFiles.length > 0) {
+        writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles, componentInfo.relativeAssetPath);
+    }
 
     // call to nectar to bundle the assets
     (0, _nectar2.default)(assetsSrc, bundleName, { cwd: assetsDirectory });
