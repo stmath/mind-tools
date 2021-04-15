@@ -91,8 +91,6 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash, b
             logFn('Executing: jspm bundle ' + modulePath + ' - mind-sdk/**/* - mind-game-components/**/* ' + name + '.js.');
             logFn('Writing bundle ./' + name + '.js');
 
-            // UPDATE: Phase 2 transition for all games ensures that games are on mind-game-components@0.7.0 or later
-            // this means we can bundle without components by default
             var bundleCommand = modulePath + ' - mind-sdk/**/* - mind-game-components/**/*';
 
             var extraParams = [];
@@ -106,28 +104,24 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash, b
 
             var res = spawn(command, ['bundle', bundleCommand, dest + name + '.js'].concat(extraParams), { stdio: "inherit" });
             if (!res.error && res.status === 0) {
-
-                // define where the bundled assets will be stored
-                var arenaAssetsDir = getPackageJsonField('mind.bundle-assets');
-                logFn('Asset dir: ' + arenaAssetsDir);
-                if (arenaAssetsDir) {
-                    var assetsDirs = arenaAssetsDir["assets"];
-                    var svgFiles = [];
-                    for (var iter = 0; iter < assetsDirs.length; iter++) {
-                        var assetRoot = assetsDirs[iter];
-                        logFn('Asset folder: ' + assetRoot);
-                        var substr = assetRoot.split('*')[0];
-                        var _modulePath = (0, _file.createPath)(substr);
-                        logFn('Module Path: ' + _modulePath);
-                        svgFiles = svgFiles.concat(extractOutlinesFromFiles(_modulePath, 'svg'));
-                    }
-                    if (svgFiles && svgFiles.length > 0) {
-                        // write to JSON
-                        logFn('Write to: ' + dest + ', ' + name);
+                var requiresOutlines = getPackageJsonField('mind.forceRasterizedAssets');
+                if (requiresOutlines) {
+                    logFn('Generate Outlines.json to support forceRasterizedAssets');
+                    var arenaAssetsDir = getPackageJsonField('mind.bundle-assets');
+                    if (arenaAssetsDir) {
+                        // iterate over all asset folders that the arena is bundling
+                        var assetsDirs = arenaAssetsDir["assets"];
+                        var svgFiles = [];
+                        for (var iter = 0; iter < assetsDirs.length; iter++) {
+                            var assetRoot = assetsDirs[iter];
+                            // ignore the 'wildcard' characters, extractOutlinesFromFiles will step through sub folders
+                            var substr = assetRoot.split('*')[0];
+                            var _modulePath = (0, _file.createPath)(substr);
+                            svgFiles = svgFiles.concat(extractOutlinesFromFiles(_modulePath, 'svg'));
+                        }
                         writeOutlinesToJSON(dest, name, svgFiles);
                     }
                 }
-
                 logFn('Writing manifest ./manifest.json');
                 writeManifest(name, modulePath, version, dest, hash);
                 ret = true;
@@ -235,9 +229,11 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
 };
 
 var extractOutlineFromString = function extractOutlineFromString(fileStr) {
+    // check for outline id in both single and double quotes
     var outlineIndex = fileStr.indexOf('id="outline"');
+    if (outlineIndex < 0) fileStr.indexOf("id='outline'");
     if (outlineIndex > 0) {
-        var endElement = fileStr.indexOf('>', outlineIndex);
+        var endElement = fileStr.indexOf('/>', outlineIndex);
         var startElement = outlineIndex;
         while (fileStr.charAt(startElement) !== '<') {
             startElement--;
@@ -252,7 +248,7 @@ var extractOutlineFromString = function extractOutlineFromString(fileStr) {
 };
 
 var extractOutlinesFromFiles = function extractOutlinesFromFiles(path, type) {
-    var relativeSrc = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
+    var relativeSrc = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : undefined;
 
     var results = _fs2.default.readdirSync(path, { withFileTypes: true });
     var svgs = [];
@@ -264,7 +260,9 @@ var extractOutlinesFromFiles = function extractOutlinesFromFiles(path, type) {
         var extractedPath = extractOutlineFromString(contents);
         if (extractedPath) {
             logFn('Name of src with path: ' + file.name);
-            svgs.push({ name: relativeSrc + '/' + file.name, outline: extractedPath });
+            var name = relativeSrc !== undefined ? relativeSrc + '/' + file.name : path + '/' + file.name;
+            name = '/' + name; // relative url format
+            svgs.push({ name: name, outline: extractedPath });
         }
     });
 
@@ -272,16 +270,24 @@ var extractOutlinesFromFiles = function extractOutlinesFromFiles(path, type) {
         return file.isDirectory();
     });
     folders.forEach(function (folder) {
-        svgs = svgs.concat(extractOutlinesFromFiles(path + '/' + folder.name, type, relativeSrc + '/' + folder.name));
+        var updatedRelativeSrc = relativeSrc !== undefined ? relativeSrc + '/' + folder.name : undefined;
+        svgs = svgs.concat(extractOutlinesFromFiles(path + '/' + folder.name, type, updatedRelativeSrc));
     });
     return svgs;
 };
 
-var writeOutlinesToJSON = function writeOutlinesToJSON(filePath, name, svgFiles) {
+var writeOutlinesToJSON = function writeOutlinesToJSON(filePath, name, svgFiles, relativeDir) {
     var outlineJSONStr = '{';
     for (var iter = 0; iter < svgFiles.length; iter++) {
         var file = svgFiles[iter];
-        outlineJSONStr += '\n"' + file.name + '": "' + file.outline + '"';
+        var fileName = file.name;
+        if (relativeDir !== undefined) {
+            console.log('relativeDir: ' + relativeDir);
+            var trimmedName = fileName.split('/assets')[1];
+            console.log('trimmed Name: ' + trimmedName);
+            fileName = relativeDir + trimmedName;
+        }
+        outlineJSONStr += '\n"' + fileName + '": "' + file.outline + '"';
         if (iter + 1 < svgFiles.length) {
             outlineJSONStr += ',';
         }
@@ -307,9 +313,9 @@ var bundleComponentAssets = function bundleComponentAssets(componentInfo, versio
     var bundleName = _path2.default.resolve('./' + bundlePath);
 
     logFn('Check ' + assetsDirectory + ' for outline svgs: ');
-    var svgFiles = extractOutlinesFromFiles(assetsDirectory, 'svg');
+    var svgFiles = extractOutlinesFromFiles(assetsDirectory, 'svg', '');
     if (svgFiles.length > 0) {
-        writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles);
+        writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles, componentInfo.relativeAssetPath);
     }
 
     // call to nectar to bundle the assets

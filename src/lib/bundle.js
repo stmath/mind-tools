@@ -59,8 +59,6 @@ export const bundleGame = (version, dest, hash, bundleOptions) => {
             logFn(`Executing: jspm bundle ${modulePath} - mind-sdk/**/* - mind-game-components/**/* ${name}.js.`);
             logFn(`Writing bundle ./${name}.js`);
 
-            // UPDATE: Phase 2 transition for all games ensures that games are on mind-game-components@0.7.0 or later
-            // this means we can bundle without components by default
             let bundleCommand = `${modulePath} - mind-sdk/**/* - mind-game-components/**/*`;
 
             let extraParams = [];
@@ -74,30 +72,24 @@ export const bundleGame = (version, dest, hash, bundleOptions) => {
 
             const res = spawn(command, ['bundle', bundleCommand, `${dest+name}.js`].concat(extraParams), {stdio: "inherit"});
             if (!res.error && res.status === 0) {
-
-                
-                // define where the bundled assets will be stored
-                const arenaAssetsDir = getPackageJsonField('mind.bundle-assets');
-                logFn('Asset dir: ' + arenaAssetsDir);
-                if (arenaAssetsDir) {
-                    let assetsDirs = arenaAssetsDir["assets"];
-                    let svgFiles = [];
-                    for (let iter = 0; iter < assetsDirs.length; iter++) {
-                        let assetRoot = assetsDirs[iter];
-                        logFn('Asset folder: ' + assetRoot);
-                        let substr = assetRoot.split('*')[0];
-                        const modulePath = createPath(substr);
-                        logFn('Module Path: ' +  modulePath);
-                        svgFiles = svgFiles.concat(extractOutlinesFromFiles(modulePath, 'svg'));
-                    }
-                    if (svgFiles && svgFiles.length > 0) {
-                        // write to JSON
-                        logFn('Write to: ' + dest + ', ' + name);
+                let requiresOutlines =  getPackageJsonField('mind.forceRasterizedAssets');
+                if (requiresOutlines) {
+                    logFn('Generate Outlines.json to support forceRasterizedAssets');
+                    const arenaAssetsDir = getPackageJsonField('mind.bundle-assets');
+                    if (arenaAssetsDir) {
+                        // iterate over all asset folders that the arena is bundling
+                        let assetsDirs = arenaAssetsDir["assets"];
+                        let svgFiles = [];
+                        for (let iter = 0; iter < assetsDirs.length; iter++) {
+                            let assetRoot = assetsDirs[iter];
+                            // ignore the 'wildcard' characters, extractOutlinesFromFiles will step through sub folders
+                            let substr = assetRoot.split('*')[0];
+                            const modulePath = createPath(substr);
+                            svgFiles = svgFiles.concat(extractOutlinesFromFiles(modulePath, 'svg'));
+                        }
                         writeOutlinesToJSON(dest, name, svgFiles);
-                    }
+                    }                    
                 }
-            
-
                 logFn(`Writing manifest ./manifest.json`);
                 writeManifest(name, modulePath, version, dest, hash);
                 ret = true;
@@ -205,9 +197,11 @@ export const bundleComponents = (version, bundleOptions) => {
 };
 
 const extractOutlineFromString = (fileStr) => {
+    // check for outline id in both single and double quotes
     let outlineIndex = fileStr.indexOf('id="outline"');
+    if (outlineIndex < 0) fileStr.indexOf("id='outline'");
     if (outlineIndex > 0) {
-        let endElement = fileStr.indexOf('>', outlineIndex);
+        let endElement = fileStr.indexOf('/>', outlineIndex);
         let startElement = outlineIndex;
         while (fileStr.charAt(startElement) !== '<') startElement--;
         let extractedPath = fileStr.slice(startElement, endElement + 1);
@@ -220,7 +214,7 @@ const extractOutlineFromString = (fileStr) => {
     return null;
 }
 
-const extractOutlinesFromFiles = (path, type, relativeSrc = '') => {
+const extractOutlinesFromFiles = (path, type, relativeSrc = undefined) => {
     let results = FS.readdirSync(path, { withFileTypes: true });
     let svgs = [];
     let files = results.filter(file => !file.isDirectory() && file.name.indexOf('.' + type) >= 0);
@@ -229,23 +223,33 @@ const extractOutlinesFromFiles = (path, type, relativeSrc = '') => {
         let extractedPath = extractOutlineFromString(contents);
         if (extractedPath) {
             logFn('Name of src with path: ' + file.name);
-            svgs.push({name: relativeSrc + '/' + file.name, outline: extractedPath});
+            let name = (relativeSrc !== undefined) ? relativeSrc + '/' + file.name : path + '/' + file.name;
+            name = '/' + name; // relative url format
+            svgs.push({name: name, outline: extractedPath});
         }
     });
 
     let folders = results.filter(file => file.isDirectory());
     folders.forEach(function (folder) {
-        svgs = svgs.concat(extractOutlinesFromFiles(path + '/' + folder.name, type, relativeSrc + '/' + folder.name));
+        let updatedRelativeSrc = (relativeSrc !== undefined) ? relativeSrc + '/' + folder.name : undefined;
+        svgs = svgs.concat(extractOutlinesFromFiles(path + '/' + folder.name, type, updatedRelativeSrc));
     });
     return svgs;
 }
 
-const writeOutlinesToJSON = (filePath, name, svgFiles) => {
+const writeOutlinesToJSON = (filePath, name, svgFiles, relativeDir) => {
     let outlineJSONStr = '{'
     for (let iter = 0; iter < svgFiles.length; iter++) {
         let file = svgFiles[iter];
+        let fileName = file.name;
+        if (relativeDir !== undefined) {
+            console.log('relativeDir: ' + relativeDir);
+            let trimmedName = fileName.split('/assets')[1];
+            console.log('trimmed Name: ' + trimmedName);
+            fileName = relativeDir + trimmedName;
+        }
         outlineJSONStr += `
-"${file.name}": "${file.outline}"`;
+"${fileName}": "${file.outline}"`;
         if (iter + 1 < svgFiles.length) {
             outlineJSONStr += ',';
         }
@@ -272,9 +276,9 @@ const bundleComponentAssets = (componentInfo, version) => {
 
 
     logFn('Check ' + assetsDirectory + ' for outline svgs: ');
-    let svgFiles = extractOutlinesFromFiles(assetsDirectory, 'svg');
+    let svgFiles = extractOutlinesFromFiles(assetsDirectory, 'svg', '');
     if (svgFiles.length > 0) {
-        writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles);
+        writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles, componentInfo.relativeAssetPath);
     }
 
 
