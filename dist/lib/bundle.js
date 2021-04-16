@@ -231,13 +231,16 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
 var extractOutlineFromString = function extractOutlineFromString(fileStr) {
     // check for outline id in both single and double quotes
     var outlineIndex = fileStr.indexOf('id="outline"');
-    if (outlineIndex < 0) fileStr.indexOf("id='outline'");
+    if (outlineIndex < 0) outlineIndex = fileStr.indexOf("id='outline'");
     if (outlineIndex > 0) {
+        // find the end of the element starting from the start of the outline id
         var endElement = fileStr.indexOf('/>', outlineIndex);
         var startElement = outlineIndex;
+        // iterate backwards until we find the start of the element
         while (fileStr.charAt(startElement) !== '<') {
             startElement--;
-        }var extractedPath = fileStr.slice(startElement, endElement + 1);
+        } // add all to a single line, and convert double quotes to single quotes
+        var extractedPath = fileStr.slice(startElement, endElement + 1);
         var doubleQuote = /"/gi;
         var newline = /(\r\n|\n|\r)/gm;
         extractedPath = extractedPath.replace(doubleQuote, "'");
@@ -250,36 +253,36 @@ var extractOutlineFromString = function extractOutlineFromString(fileStr) {
 var extractOutlinesFromFiles = function extractOutlinesFromFiles(folderPath, type) {
     var relativeSrc = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : undefined;
 
-    var results = _fs2.default.readdirSync(folderPath, { withFileTypes: true });
+    var results = _fs2.default.readdirSync(folderPath); // {withFileTypes: true} should return Dirent objects, but not on build
     var svgs = [];
-
-    for (var iter = 0; iter < results.length; iter++) {
-        var res = results[iter];
-        logFn('Results: ' + res + ' \n        Name: ' + res.name);
-    }
-
+    // files will now be strings that represent the names of the file or folder
     var files = results.filter(function (file) {
-        return !file.isDirectory() && file.name.indexOf('.' + type) >= 0;
+        return file.indexOf('.') >= 0 && file.indexOf('.' + type) >= 0;
     });
     files.forEach(function (file) {
-        var resolvedPath = _path2.default.resolve(folderPath + '/' + file.name);
+        var resolvedPath = _path2.default.resolve(folderPath + '/' + file);
         var contents = _fs2.default.readFileSync(resolvedPath, { encoding: 'utf-8' });
         var extractedPath = extractOutlineFromString(contents);
         if (extractedPath) {
-            var name = relativeSrc !== undefined ? relativeSrc + '/' + file.name : folderPath + '/' + file.name;
-            name = '/' + name; // relative url format
+            var name = relativeSrc !== undefined ? relativeSrc + '/' + file : folderPath + '/' + file;
+            logFn('outline found in: ' + resolvedPath + '\n            name: ' + relativeSrc + '/' + file);
             svgs.push({ name: name, outline: extractedPath });
         }
     });
 
     var folders = results.filter(function (file) {
-        return file.isDirectory();
+        return file.indexOf('.') < 0;
     });
     folders.forEach(function (folder) {
-        var updatedRelativeSrc = relativeSrc !== undefined ? relativeSrc + '/' + folder.name : undefined;
-        var resolvedPath = _path2.default.resolve(folderPath + '/' + folder.name);
-        logFn('Read assetsDirectory: ' + resolvedPath);
-        svgs = svgs.concat(extractOutlinesFromFiles(resolvedPath, type, updatedRelativeSrc));
+        try {
+            var updatedRelativeSrc = relativeSrc !== undefined ? relativeSrc + '/' + folder : undefined;
+            var _resolvedPath = _path2.default.resolve(folderPath + '/' + folder);
+            logFn('Read assetsDirectory: ' + _resolvedPath);
+            logFn('RelativeSrc: ' + updatedRelativeSrc);
+            svgs = svgs.concat(extractOutlinesFromFiles(_resolvedPath, type, updatedRelativeSrc));
+        } catch (e) {
+            logFn('unable to open ' + resolvedPath);
+        }
     });
     return svgs;
 };
@@ -290,8 +293,7 @@ var writeOutlinesToJSON = function writeOutlinesToJSON(filePath, name, svgFiles,
         var file = svgFiles[iter];
         var fileName = file.name;
         if (relativeDir !== undefined) {
-            var trimmedName = fileName.split('/assets')[1];
-            fileName = relativeDir + trimmedName;
+            fileName = relativeDir + fileName;
         }
         outlineJSONStr += '\n"' + fileName + '": "' + file.outline + '"';
         if (iter + 1 < svgFiles.length) {
@@ -317,10 +319,11 @@ var bundleComponentAssets = function bundleComponentAssets(componentInfo, versio
     var bundlePath = (0, _file.createPath)(bundleDir, componentInfo.name + '.tar');
     var bundleName = _path2.default.resolve('./' + bundlePath);
 
-    var extractJSON = false;
+    var extractJSON = true;
     if (extractJSON) {
-        logFn('Read assetsDirectory: ' + assetsDirectory);
-        var svgFiles = extractOutlinesFromFiles(assetsDirectory, 'svg', '');
+        var resolvedAssetDir = _path2.default.resolve(relativeSrc, componentInfo.assets.split('*')[0]);
+        logFn('Read assetsDirectory: ' + resolvedAssetDir);
+        var svgFiles = extractOutlinesFromFiles(resolvedAssetDir, 'svg', '');
         if (svgFiles.length > 0) {
             writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles, componentInfo.relativeAssetPath);
         }

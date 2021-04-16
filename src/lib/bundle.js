@@ -199,11 +199,14 @@ export const bundleComponents = (version, bundleOptions) => {
 const extractOutlineFromString = (fileStr) => {
     // check for outline id in both single and double quotes
     let outlineIndex = fileStr.indexOf('id="outline"');
-    if (outlineIndex < 0) fileStr.indexOf("id='outline'");
+    if (outlineIndex < 0) outlineIndex = fileStr.indexOf("id='outline'");
     if (outlineIndex > 0) {
+        // find the end of the element starting from the start of the outline id
         let endElement = fileStr.indexOf('/>', outlineIndex);
         let startElement = outlineIndex;
+        // iterate backwards until we find the start of the element
         while (fileStr.charAt(startElement) !== '<') startElement--;
+        // add all to a single line, and convert double quotes to single quotes
         let extractedPath = fileStr.slice(startElement, endElement + 1);
         let doubleQuote = /"/gi;
         let newline = /(\r\n|\n|\r)/gm
@@ -215,34 +218,34 @@ const extractOutlineFromString = (fileStr) => {
 }
 
 const extractOutlinesFromFiles = (folderPath, type, relativeSrc = undefined) => {
-    let results = FS.readdirSync(folderPath, { withFileTypes: true });
+    let results = FS.readdirSync(folderPath); // {withFileTypes: true} should return Dirent objects, but not on build
     let svgs = [];
-
-    for (let iter = 0; iter < results.length; iter++) {
-        let res = results[iter];
-        logFn(`Results: ${res} 
-        Name: ${res.name}`);
-    }
-
-
-    let files = results.filter(file => !file.isDirectory() && file.name.indexOf('.' + type) >= 0);
+    // files will now be strings that represent the names of the file or folder
+    let files = results.filter(file => file.indexOf('.') >= 0 && file.indexOf('.' + type) >= 0);
     files.forEach (function (file) {
-        let resolvedPath = path.resolve(`${folderPath}/${file.name}`);
+        let resolvedPath = path.resolve(`${folderPath}/${file}`);
         let contents = FS.readFileSync(resolvedPath, {encoding: 'utf-8'});
         let extractedPath = extractOutlineFromString(contents);
         if (extractedPath) {
-            let name = (relativeSrc !== undefined) ? relativeSrc + '/' + file.name : folderPath + '/' + file.name;
-            name = '/' + name; // relative url format
+            let name = (relativeSrc !== undefined) ? relativeSrc + '/' + file : folderPath + '/' + file;
+            logFn(`outline found in: ${resolvedPath}
+            name: ${relativeSrc}/${file}`)
             svgs.push({name: name, outline: extractedPath});
         }
     });
 
-    let folders = results.filter(file => file.isDirectory());
+    let folders = results.filter(file => file.indexOf('.') < 0);
     folders.forEach(function (folder) {
-        let updatedRelativeSrc = (relativeSrc !== undefined) ? relativeSrc + '/' + folder.name : undefined;
-        let resolvedPath = path.resolve(`${folderPath}/${folder.name}`);
-        logFn(`Read assetsDirectory: ${resolvedPath}`);
-        svgs = svgs.concat(extractOutlinesFromFiles(resolvedPath, type, updatedRelativeSrc));
+        try {
+            let updatedRelativeSrc = (relativeSrc !== undefined) ? relativeSrc + '/' + folder : undefined;
+            let resolvedPath = path.resolve(`${folderPath}/${folder}`);
+            logFn(`Read assetsDirectory: ${resolvedPath}`);
+            logFn(`RelativeSrc: ${updatedRelativeSrc}`);
+            svgs = svgs.concat(extractOutlinesFromFiles(resolvedPath, type, updatedRelativeSrc));
+        } catch (e) {
+            logFn(`unable to open ${resolvedPath}`);
+        }
+
     });
     return svgs;
 }
@@ -253,8 +256,7 @@ const writeOutlinesToJSON = (filePath, name, svgFiles, relativeDir) => {
         let file = svgFiles[iter];
         let fileName = file.name;
         if (relativeDir !== undefined) {
-            let trimmedName = fileName.split('/assets')[1];
-            fileName = relativeDir + trimmedName;
+            fileName = relativeDir + fileName;
         }
         outlineJSONStr += `
 "${fileName}": "${file.outline}"`;
@@ -283,8 +285,9 @@ const bundleComponentAssets = (componentInfo, version) => {
 
     let extractJSON = false;
     if (extractJSON) {
-        logFn(`Read assetsDirectory: ${assetsDirectory}`);
-        let svgFiles = extractOutlinesFromFiles(assetsDirectory, 'svg', '');
+        let resolvedAssetDir = path.resolve(relativeSrc, componentInfo.assets.split('*')[0]);
+        logFn(`Read assetsDirectory: ${resolvedAssetDir}`);
+        let svgFiles = extractOutlinesFromFiles(resolvedAssetDir, 'svg', '');
         if (svgFiles.length > 0) {
             writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles, componentInfo.relativeAssetPath);
         }
