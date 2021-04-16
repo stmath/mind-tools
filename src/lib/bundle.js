@@ -217,6 +217,14 @@ const extractOutlineFromString = (fileStr) => {
 const extractOutlinesFromFiles = (folderPath, type, relativeSrc = undefined) => {
     let results = FS.readdirSync(folderPath, { withFileTypes: true });
     let svgs = [];
+
+    for (let iter = 0; iter < results.length; iter++) {
+        let res = results[iter];
+        logFn(`Results: ${res} 
+        Name: ${res.name}`);
+    }
+
+
     let files = results.filter(file => !file.isDirectory() && file.name.indexOf('.' + type) >= 0);
     files.forEach (function (file) {
         let resolvedPath = path.resolve(`${folderPath}/${file.name}`);

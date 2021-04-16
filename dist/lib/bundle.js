@@ -252,6 +252,12 @@ var extractOutlinesFromFiles = function extractOutlinesFromFiles(folderPath, typ
 
     var results = _fs2.default.readdirSync(folderPath, { withFileTypes: true });
     var svgs = [];
+
+    for (var iter = 0; iter < results.length; iter++) {
+        var res = results[iter];
+        logFn('Results: ' + res + ' \n        Name: ' + res.name);
+    }
+
     var files = results.filter(function (file) {
         return !file.isDirectory() && file.name.indexOf('.' + type) >= 0;
     });
