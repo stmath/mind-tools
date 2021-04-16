@@ -317,10 +317,13 @@ var bundleComponentAssets = function bundleComponentAssets(componentInfo, versio
     var bundlePath = (0, _file.createPath)(bundleDir, componentInfo.name + '.tar');
     var bundleName = _path2.default.resolve('./' + bundlePath);
 
-    logFn('Read assetsDirectory: ' + assetsDirectory);
-    var svgFiles = extractOutlinesFromFiles(assetsDirectory, 'svg', '');
-    if (svgFiles.length > 0) {
-        writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles, componentInfo.relativeAssetPath);
+    var extractJSON = false;
+    if (extractJSON) {
+        logFn('Read assetsDirectory: ' + assetsDirectory);
+        var svgFiles = extractOutlinesFromFiles(assetsDirectory, 'svg', '');
+        if (svgFiles.length > 0) {
+            writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles, componentInfo.relativeAssetPath);
+        }
     }
 
     // call to nectar to bundle the assets

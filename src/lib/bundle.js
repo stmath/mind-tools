@@ -281,12 +281,14 @@ const bundleComponentAssets = (componentInfo, version) => {
     const bundlePath = createPath(bundleDir, `${componentInfo.name}.tar`);
     const bundleName = path.resolve(`./${bundlePath}`);
 
-    logFn(`Read assetsDirectory: ${assetsDirectory}`);
-    let svgFiles = extractOutlinesFromFiles(assetsDirectory, 'svg', '');
-    if (svgFiles.length > 0) {
-        writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles, componentInfo.relativeAssetPath);
+    let extractJSON = false;
+    if (extractJSON) {
+        logFn(`Read assetsDirectory: ${assetsDirectory}`);
+        let svgFiles = extractOutlinesFromFiles(assetsDirectory, 'svg', '');
+        if (svgFiles.length > 0) {
+            writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles, componentInfo.relativeAssetPath);
+        }
     }
-
 
     // call to nectar to bundle the assets
     nectar(assetsSrc, bundleName, {cwd: assetsDirectory});
