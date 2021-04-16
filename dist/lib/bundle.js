@@ -247,19 +247,20 @@ var extractOutlineFromString = function extractOutlineFromString(fileStr) {
     return null;
 };
 
-var extractOutlinesFromFiles = function extractOutlinesFromFiles(path, type) {
+var extractOutlinesFromFiles = function extractOutlinesFromFiles(folderPath, type) {
     var relativeSrc = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : undefined;
 
-    var results = _fs2.default.readdirSync(path, { withFileTypes: true });
+    var results = _fs2.default.readdirSync(folderPath, { withFileTypes: true });
     var svgs = [];
     var files = results.filter(function (file) {
         return !file.isDirectory() && file.name.indexOf('.' + type) >= 0;
     });
     files.forEach(function (file) {
-        var contents = _fs2.default.readFileSync(path + '/' + file.name, { encoding: 'utf-8' });
+        var resolvedPath = _path2.default.resolve(folderPath + '/' + file.name);
+        var contents = _fs2.default.readFileSync(resolvedPath, { encoding: 'utf-8' });
         var extractedPath = extractOutlineFromString(contents);
         if (extractedPath) {
-            var name = relativeSrc !== undefined ? relativeSrc + '/' + file.name : path + '/' + file.name;
+            var name = relativeSrc !== undefined ? relativeSrc + '/' + file.name : folderPath + '/' + file.name;
             name = '/' + name; // relative url format
             svgs.push({ name: name, outline: extractedPath });
         }
@@ -270,7 +271,9 @@ var extractOutlinesFromFiles = function extractOutlinesFromFiles(path, type) {
     });
     folders.forEach(function (folder) {
         var updatedRelativeSrc = relativeSrc !== undefined ? relativeSrc + '/' + folder.name : undefined;
-        svgs = svgs.concat(extractOutlinesFromFiles(path + '/' + folder.name, type, updatedRelativeSrc));
+        var resolvedPath = _path2.default.resolve(folderPath + '/' + folder.name);
+        logFn('Read assetsDirectory: ' + resolvedPath);
+        svgs = svgs.concat(extractOutlinesFromFiles(resolvedPath, type, updatedRelativeSrc));
     });
     return svgs;
 };
@@ -308,6 +311,7 @@ var bundleComponentAssets = function bundleComponentAssets(componentInfo, versio
     var bundlePath = (0, _file.createPath)(bundleDir, componentInfo.name + '.tar');
     var bundleName = _path2.default.resolve('./' + bundlePath);
 
+    logFn('Read assetsDirectory: ' + assetsDirectory);
     var svgFiles = extractOutlinesFromFiles(assetsDirectory, 'svg', '');
     if (svgFiles.length > 0) {
         writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles, componentInfo.relativeAssetPath);
