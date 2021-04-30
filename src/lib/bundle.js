@@ -72,9 +72,8 @@ export const bundleGame = (version, dest, hash, bundleOptions) => {
 
             const res = spawn(command, ['bundle', bundleCommand, `${dest+name}.js`].concat(extraParams), {stdio: "inherit"});
             if (!res.error && res.status === 0) {
-                let requiresOutlines =  getPackageJsonField('mind.forceRasterizedAssets');
+                let requiresOutlines =  false; // for now ignore automated extraction getPackageJsonField('mind.forceRasterizedAssets');
                 if (requiresOutlines) {
-                    logFn('Generate Outlines.json to support forceRasterizedAssets');
                     const arenaAssetsDir = getPackageJsonField('mind.bundle-assets');
                     if (arenaAssetsDir) {
                         // iterate over all asset folders that the arena is bundling
@@ -196,10 +195,9 @@ export const bundleComponents = (version, bundleOptions) => {
     return success;
 };
 
-const extractOutlineFromString = (fileStr) => {
-    // check for outline id in both single and double quotes
-    let outlineIndex = fileStr.indexOf('id="outline"');
-    if (outlineIndex < 0) outlineIndex = fileStr.indexOf("id='outline'");
+const extractOutlineFromString = (fileStr, id='outline') => {
+    let outlineIndex = fileStr.indexOf(`id="${id}"`);
+    if (outlineIndex < 0) outlineIndex = fileStr.indexOf(`id='${id}'`);
     if (outlineIndex > 0) {
         // find the end of the element starting from the start of the outline id
         let endElement = fileStr.indexOf('/>', outlineIndex);
@@ -217,7 +215,7 @@ const extractOutlineFromString = (fileStr) => {
     return null;
 }
 
-const extractOutlinesFromFiles = (folderPath, type, relativeSrc = undefined) => {
+const extractOutlinesFromFiles = (folderPath, type, relativeSrc = undefined, outlinesToSearch) => {
     let results = FS.readdirSync(folderPath); // {withFileTypes: true} should return Dirent objects, but not on build
     let svgs = [];
     // files will now be strings that represent the names of the file or folder
@@ -225,23 +223,39 @@ const extractOutlinesFromFiles = (folderPath, type, relativeSrc = undefined) => 
     files.forEach (function (file) {
         let resolvedPath = path.resolve(`${folderPath}/${file}`);
         let contents = FS.readFileSync(resolvedPath, {encoding: 'utf-8'});
-        let extractedPath = extractOutlineFromString(contents);
-        if (extractedPath) {
-            let name = (relativeSrc !== undefined) ? relativeSrc + '/' + file : folderPath + '/' + file;
-            logFn(`outline found in: ${resolvedPath}
-            name: ${relativeSrc}/${file}`)
-            svgs.push({name: name, outline: extractedPath});
+        let extractedElements = [];
+
+        for (let iter = 0; iter < outlinesToSearch.length; iter++) {
+            let outlineId = outlinesToSearch[iter];
+            // check for outline id in both single and double quotes
+            let regexId = new RegExp(outlineId, "g"); 
+            if (contents && regexId) {
+                let allMatches = contents.match(regexId);
+                if (allMatches) {
+                    for (let regexIter = 0; regexIter < allMatches.length; regexIter++) {
+                        let outlineId = allMatches[regexIter];
+                        let extractedPath = extractOutlineFromString(contents, outlineId); 
+                        if (extractedPath) {
+                            extractedElements.push({outlineId, extractedPath});
+                        }
+                    }
+                }
+            }
         }
+        if (extractedElements.length > 0) {
+            let name = (relativeSrc !== undefined) ? relativeSrc + '/' + file : folderPath + '/' + file;
+            svgs.push({name: name, elements: extractedElements});
+        }
+      
     });
 
     let folders = results.filter(file => file.indexOf('.') < 0);
     folders.forEach(function (folder) {
+        let resolvedPath
         try {
             let updatedRelativeSrc = (relativeSrc !== undefined) ? relativeSrc + '/' + folder : undefined;
-            let resolvedPath = path.resolve(`${folderPath}/${folder}`);
-            logFn(`Read assetsDirectory: ${resolvedPath}`);
-            logFn(`RelativeSrc: ${updatedRelativeSrc}`);
-            svgs = svgs.concat(extractOutlinesFromFiles(resolvedPath, type, updatedRelativeSrc));
+            resolvedPath = path.resolve(`${folderPath}/${folder}`);
+            svgs = svgs.concat(extractOutlinesFromFiles(resolvedPath, type, updatedRelativeSrc, outlinesToSearch));
         } catch (e) {
             logFn(`unable to open ${resolvedPath}`);
         }
@@ -258,8 +272,16 @@ const writeOutlinesToJSON = (filePath, name, svgFiles, relativeDir) => {
         if (relativeDir !== undefined) {
             fileName = relativeDir + fileName;
         }
-        outlineJSONStr += `
-"${fileName}": "${file.outline}"`;
+        outlineJSONStr += `\n"${fileName}": {\n`;
+        for (let elemIter = 0; elemIter < file.elements.length; elemIter++) {
+            let element = file.elements[elemIter];
+            outlineJSONStr += `\t"${element.outlineId}": "${element.extractedPath}"`;
+            if (elemIter + 1 < file.elements.length) {
+                outlineJSONStr += ',\n';
+            } else {
+                outlineJSONStr += '\n\t}';
+            }
+        }
         if (iter + 1 < svgFiles.length) {
             outlineJSONStr += ',';
         }
@@ -286,8 +308,9 @@ const bundleComponentAssets = (componentInfo, version) => {
     let extractJSON = false;
     if (extractJSON) {
         let resolvedAssetDir = path.resolve(relativeSrc, componentInfo.assets.split('*')[0]);
-        logFn(`Read assetsDirectory: ${resolvedAssetDir}`);
-        let svgFiles = extractOutlinesFromFiles(resolvedAssetDir, 'svg', '');
+        let outlinesToSearch = componentInfo.outlineIds || ['outline'];
+        let svgFiles = extractOutlinesFromFiles(resolvedAssetDir, 'svg', '', outlinesToSearch);
+        
         if (svgFiles.length > 0) {
             writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles, componentInfo.relativeAssetPath);
         }

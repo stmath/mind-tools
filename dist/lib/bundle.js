@@ -104,9 +104,8 @@ var bundleGame = exports.bundleGame = function bundleGame(version, dest, hash, b
 
             var res = spawn(command, ['bundle', bundleCommand, dest + name + '.js'].concat(extraParams), { stdio: "inherit" });
             if (!res.error && res.status === 0) {
-                var requiresOutlines = getPackageJsonField('mind.forceRasterizedAssets');
+                var requiresOutlines = false; // for now ignore automated extraction getPackageJsonField('mind.forceRasterizedAssets');
                 if (requiresOutlines) {
-                    logFn('Generate Outlines.json to support forceRasterizedAssets');
                     var arenaAssetsDir = getPackageJsonField('mind.bundle-assets');
                     if (arenaAssetsDir) {
                         // iterate over all asset folders that the arena is bundling
@@ -229,9 +228,10 @@ var bundleComponents = exports.bundleComponents = function bundleComponents(vers
 };
 
 var extractOutlineFromString = function extractOutlineFromString(fileStr) {
-    // check for outline id in both single and double quotes
-    var outlineIndex = fileStr.indexOf('id="outline"');
-    if (outlineIndex < 0) outlineIndex = fileStr.indexOf("id='outline'");
+    var id = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'outline';
+
+    var outlineIndex = fileStr.indexOf('id="' + id + '"');
+    if (outlineIndex < 0) outlineIndex = fileStr.indexOf('id=\'' + id + '\'');
     if (outlineIndex > 0) {
         // find the end of the element starting from the start of the outline id
         var endElement = fileStr.indexOf('/>', outlineIndex);
@@ -252,6 +252,7 @@ var extractOutlineFromString = function extractOutlineFromString(fileStr) {
 
 var extractOutlinesFromFiles = function extractOutlinesFromFiles(folderPath, type) {
     var relativeSrc = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : undefined;
+    var outlinesToSearch = arguments[3];
 
     var results = _fs2.default.readdirSync(folderPath); // {withFileTypes: true} should return Dirent objects, but not on build
     var svgs = [];
@@ -262,11 +263,28 @@ var extractOutlinesFromFiles = function extractOutlinesFromFiles(folderPath, typ
     files.forEach(function (file) {
         var resolvedPath = _path2.default.resolve(folderPath + '/' + file);
         var contents = _fs2.default.readFileSync(resolvedPath, { encoding: 'utf-8' });
-        var extractedPath = extractOutlineFromString(contents);
-        if (extractedPath) {
+        var extractedElements = [];
+
+        for (var iter = 0; iter < outlinesToSearch.length; iter++) {
+            var outlineId = outlinesToSearch[iter];
+            // check for outline id in both single and double quotes
+            var regexId = new RegExp(outlineId, "g");
+            if (contents && regexId) {
+                var allMatches = contents.match(regexId);
+                if (allMatches) {
+                    for (var regexIter = 0; regexIter < allMatches.length; regexIter++) {
+                        var _outlineId = allMatches[regexIter];
+                        var extractedPath = extractOutlineFromString(contents, _outlineId);
+                        if (extractedPath) {
+                            extractedElements.push({ outlineId: _outlineId, extractedPath: extractedPath });
+                        }
+                    }
+                }
+            }
+        }
+        if (extractedElements.length > 0) {
             var name = relativeSrc !== undefined ? relativeSrc + '/' + file : folderPath + '/' + file;
-            logFn('outline found in: ' + resolvedPath + '\n            name: ' + relativeSrc + '/' + file);
-            svgs.push({ name: name, outline: extractedPath });
+            svgs.push({ name: name, elements: extractedElements });
         }
     });
 
@@ -274,12 +292,11 @@ var extractOutlinesFromFiles = function extractOutlinesFromFiles(folderPath, typ
         return file.indexOf('.') < 0;
     });
     folders.forEach(function (folder) {
+        var resolvedPath = void 0;
         try {
             var updatedRelativeSrc = relativeSrc !== undefined ? relativeSrc + '/' + folder : undefined;
-            var _resolvedPath = _path2.default.resolve(folderPath + '/' + folder);
-            logFn('Read assetsDirectory: ' + _resolvedPath);
-            logFn('RelativeSrc: ' + updatedRelativeSrc);
-            svgs = svgs.concat(extractOutlinesFromFiles(_resolvedPath, type, updatedRelativeSrc));
+            resolvedPath = _path2.default.resolve(folderPath + '/' + folder);
+            svgs = svgs.concat(extractOutlinesFromFiles(resolvedPath, type, updatedRelativeSrc, outlinesToSearch));
         } catch (e) {
             logFn('unable to open ' + resolvedPath);
         }
@@ -295,7 +312,16 @@ var writeOutlinesToJSON = function writeOutlinesToJSON(filePath, name, svgFiles,
         if (relativeDir !== undefined) {
             fileName = relativeDir + fileName;
         }
-        outlineJSONStr += '\n"' + fileName + '": "' + file.outline + '"';
+        outlineJSONStr += '\n"' + fileName + '": {\n';
+        for (var elemIter = 0; elemIter < file.elements.length; elemIter++) {
+            var element = file.elements[elemIter];
+            outlineJSONStr += '\t"' + element.outlineId + '": "' + element.extractedPath + '"';
+            if (elemIter + 1 < file.elements.length) {
+                outlineJSONStr += ',\n';
+            } else {
+                outlineJSONStr += '\n\t}';
+            }
+        }
         if (iter + 1 < svgFiles.length) {
             outlineJSONStr += ',';
         }
@@ -319,11 +345,12 @@ var bundleComponentAssets = function bundleComponentAssets(componentInfo, versio
     var bundlePath = (0, _file.createPath)(bundleDir, componentInfo.name + '.tar');
     var bundleName = _path2.default.resolve('./' + bundlePath);
 
-    var extractJSON = true;
+    var extractJSON = false;
     if (extractJSON) {
         var resolvedAssetDir = _path2.default.resolve(relativeSrc, componentInfo.assets.split('*')[0]);
-        logFn('Read assetsDirectory: ' + resolvedAssetDir);
-        var svgFiles = extractOutlinesFromFiles(resolvedAssetDir, 'svg', '');
+        var outlinesToSearch = componentInfo.outlineIds || ['outline'];
+        var svgFiles = extractOutlinesFromFiles(resolvedAssetDir, 'svg', '', outlinesToSearch);
+
         if (svgFiles.length > 0) {
             writeOutlinesToJSON(bundleDir, componentInfo.name, svgFiles, componentInfo.relativeAssetPath);
         }
