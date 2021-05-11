@@ -49,98 +49,6 @@ module.exports = function (gulp, plugins, cmds, packageJson) {
 		options.cssOrder = options.hasOwnProperty('cssOrder') ? options.cssOrder : null;
 	}
 
-	function __generateImage(files, options, outSvgName) {
-		// stored strings in an array so we can join them with newlines.
-		// xlink is needed for safari to support <use> tag's href attribute
-		var startSvgString = '<svg x="0" y="0" width="' + Math.ceil(options.atlases[FIRST_INDEX].width) + '" height="' + Math.ceil(options.atlases[FIRST_INDEX].height) + '" viewBox="0 0 ' + Math.ceil(options.atlases[FIRST_INDEX].width) + ' ' + Math.ceil(options.atlases[FIRST_INDEX].height) + '" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">';
-		var endSvgString = '</svg>';
-		var storedSymbolsStrs = [];
-		var storedUseStrs = [];
-
-		files.forEach(function (fileData) {
-			// xml does not like having multiple xml tags in one doc, lets remove them.
-			var allTags = Utils.getNodesByTagName('xml', fileData.svgDOM);
-			for (var i in allTags) {
-				var xmlTag = allTags[i];
-				var parentNode = xmlTag.parentNode;
-				parentNode.removeChild(xmlTag);
-				// removeChild on xmldom library has a bug with updating children whose parent do not have ownerdocument.
-				if (parentNode && !parentNode.ownerDocument) {
-					var cs = parentNode.childNodes;
-
-					var child = parentNode.firstChild;
-					var _i = 0;
-					while (child) {
-						cs[_i++] = child;
-						child = child.nextSibling;
-					}
-					cs.length = _i;
-				}
-			}
-			var xmlSerializer = new XMLSerializer();
-			var svgToString = xmlSerializer.serializeToString(fileData.svgDOM);
-			var symbolId = '---SYMBOL---' + fileData.name;
-			var symbolStr = '<symbol id="' + symbolId + '">' + svgToString.replace(/\s\s+/g, ' ') + '</symbol>';
-			storedSymbolsStrs.push(symbolStr);
-
-			// store the <use> tag. This will allow to translate each svg within the spritesheet.
-			// xlink is needed for safari to support <use> tag's href attribute. xlink needs to be enabled in <svg> tag
-			var useStr = '<use xlink:href="#' + symbolId + '" transform="translate(' + fileData.x + ', ' + fileData.y + ')" />';
-			storedUseStrs.push(useStr);
-		});
-		var finalDocArr = [startSvgString].concat(storedSymbolsStrs).concat(storedUseStrs).concat([endSvgString]);
-		var finalDocStr = '' + finalDocArr.join('\n');
-
-		options.svgDOMString = finalDocStr.replace(/\s\s+/, ' '); // optimize by removing newline spaces.
-		fs.writeFileSync(outSvgName, finalDocStr);
-	};
-
-	function __determineCanvasSize(files, options) {
-		// add a frame buffer to the values passed into the padding
-		// this will force the resulting svg to include the given padding between each frame
-		// this value is currently used for both the x and y coordinates
-		files.forEach(function (item) {
-			item.w = item.width + frameBuffer;
-			item.h = item.height + frameBuffer;
-
-			if (isNaN(options.width)) {
-				options.width = item.width;
-			}
-
-			if (isNaN(options.height)) {
-				options.height = item.height;
-			} else {
-				options.height += item.height;
-			}
-			options.width += frameBuffer;
-			options.height += frameBuffer;
-		});
-
-		if (options.square) {
-			options.width = options.height = Math.max(options.width, options.height);
-		}
-
-		if (options.powerOfTwo) {
-			options.width = roundToPowerOfTwo(options.width);
-			options.height = roundToPowerOfTwo(options.height);
-		}
-
-		// sort files based on the choosen options.sort method
-		Sorter.run(options.sort, files);
-
-		Packer.pack(options.algorithm, files, options);
-	}
-
-	function roundToPowerOfTwo(value) {
-		var powers = 2;
-		while (value > powers) {
-			// eslint-disable-next-line no-magic-numbers
-			powers *= 2;
-		}
-
-		return powers;
-	}
-
 	function _runTask() {
 		if (src) {
 			if (shouldCrop) {
@@ -177,44 +85,9 @@ module.exports = function (gulp, plugins, cmds, packageJson) {
 
 				// start with the big textures
 				// while (collectedInfo.unusedNodes.length) {
+				// _generateJSON()...;	
 
-				cleanSVGFiles.forEach(function (file, index) {
-					// store the info
-					themObj[file.name] = {
-						name: file.name,
-						url: file.url,
-						type: 'image',
-						metadata: {
-							mipmap: true,
-							resolution: !isNaN(resolution) ? resolution : DEFAULT_RESOLUTION,
-							spriteSheetSvg: {
-								frame: {
-									x: file.x,
-									y: file.y,
-									width: file.width,
-									height: file.height
-								}
-							}
-						}
-					};
 
-					// 	// 	// console.log(cmds);
-					// if (cmds.defer) {
-					// themObj[name].defer = true;
-					// }
-					if (shouldDefer) {
-						themObj[file.name].metadata.defer = true;
-						themObj[file.name].defer = true;
-					}
-				});
-
-				// store themeInfo in json
-				var prettyPrintLevel = 4;
-				var themObjJson = JSON.stringify(themObj, null, prettyPrintLevel);
-
-				// write the xml
-				fs.writeFileSync(src + folderName + '_spriteSheet.json', themObjJson);
-				fs.writeFileSync(src + folderName + '_spriteSheet.js', 'export default ' + themObjJson.replace(/"/g, '\''));
 				process.exit();
 			} else {
 				console.error('Sorry, this command only works with directories.');
