@@ -26,16 +26,19 @@
     "svgoptimizer": "./dist/svgoptimizer.js",
     "api-client-bundle": "./dist/api-client-bundle.js",
     "sdk-bundle": "./dist/sdk-bundle.js",
-    "component-bundle": "./dist/component-bundle.js"
+    "component-bundle": "./dist/component-bundle.js",
+    "spritesheet-generator": "./dist/spritesheet-generator.js"
   },
   "dependencies": {
     "aws-sdk": "^2.341.0",
+    "chokidar": "^2.0.4",
     "command-line-args": "^5.0.2",
     "moment": "^2.24.0",
     "moment-timezone": "^0.5.23",
     "nectar": "^5.0.4",
+    "puppeteer": "^9.1.1",
     "simple-git": "^1.105.0",
-    "chokidar": "^2.0.4",
-    "svgo": "^1.2.2"
+    "svgo": "^1.2.2",
+    "xmldom": "^0.6.0"
   }
 }
