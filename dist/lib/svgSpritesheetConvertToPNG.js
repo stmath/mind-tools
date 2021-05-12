@@ -4,7 +4,6 @@ Object.defineProperty(exports, "__esModule", {
 	value: true
 });
 exports.convertSpritesheet = convertSpritesheet;
-exports.convertSVGToPNGSpritesheet = convertSVGToPNGSpritesheet;
 exports.generatePNG = generatePNG;
 
 var _fs = require('fs');
@@ -73,17 +72,27 @@ async function convertSpritesheet(folderPath) {
 	Promise.all(svgPromises).then(function (values) {
 		var svgs = values;
 
-		/**
-  let name = 'Composite'
-  writeOutlinesToJSON(folderPath, name, svgs);
-  		options.algorithm = options.hasOwnProperty('algorithm') ? options.algorithm : 'growing-binpacking';
-  options.sort = options.hasOwnProperty('sort') ? options.sort : 'maxside';
-  __determineCanvasSize(svgs, options);
-  		const outSvgName = path.resolve(folderPath, 'compositeSVG_spriteSheet.svg');
-  __generateImage(svgs, options, outSvgName)
-  		let themeJSON = __generateJSON(svgs, folderPath, 'compositeSVG');
-  		convertSVGToPNGSpritesheet(outSvgName, svgs, themeJSON);
-   */
+		var name = 'Composite';
+
+		console.log('Extracting outline paths');
+		writeOutlinesToJSON(folderPath, name, svgs);
+
+		options.algorithm = options.hasOwnProperty('algorithm') ? options.algorithm : 'growing-binpacking';
+		options.sort = options.hasOwnProperty('sort') ? options.sort : 'maxside';
+		options.square = true;
+		console.log('Precalculating SVG spritesheet size');
+		__determineCanvasSize(svgs, options);
+
+		var outSvgName = _path2.default.resolve(folderPath, 'compositeSVG_spriteSheet.svg');
+		console.log('Constructing packed SVG spritesheet');
+		__generateImage(svgs, options, outSvgName);
+
+		console.log('Generating JSON data for mapping frames to resources');
+		var themeJSON = __generateJSON(svgs, folderPath, 'compositeSVG');
+
+		console.log('Converting spritesheet from SVG to PNG');
+		var pngName = (0, _file.createPath)(folderPath, 'compositeSVG_spriteSheet.png');
+		generatePNG(outSvgName, pngName, svgs, themeJSON);
 	});
 
 	/**
@@ -299,13 +308,14 @@ function __generateJSON(svgs, folderPath, fileNameRoot) {
 	// for each svg we need to store the data in a way that's consumable by the sdk
 	svgs.forEach(function (file) {
 		// add by name, include reference to original url, and dimensions
-		themeObj[file.name] = {
+		themeObj[file.resourceName] = {
 			name: file.name,
+			resourceName: file.resourceName,
 			url: file.url,
 			type: 'image',
 			metadata: {
 				mipmap: true,
-				resolution: DEFAULT_RESOLUTION,
+				resolution: file.resolution,
 				spriteSheetSvg: {
 					frame: {
 						x: file.x,
@@ -316,6 +326,7 @@ function __generateJSON(svgs, folderPath, fileNameRoot) {
 				}
 			}
 		};
+		console.log('defined resolution: ' + themeObj[file.resourceName].metadata.resolution);
 
 		if (shouldDefer) {
 			themeObj[file.name].metadata.defer = true;
@@ -351,7 +362,6 @@ function __generateImage(files, options, outSvgName) {
 	var storedUseStrs = [];
 
 	files.forEach(function (fileData) {
-		// console.log(fileData.svgDOM);
 		// xml does not like having multiple xml tags in one doc, lets remove them.
 		var allTags = _utils2.default.getNodesByTagName('xml', fileData.svgDOM);
 		for (var i in allTags) {
@@ -380,7 +390,7 @@ function __generateImage(files, options, outSvgName) {
 
 		// store the <use> tag. This will allow to translate each svg within the spritesheet.
 		// xlink is needed for safari to support <use> tag's href attribute. xlink needs to be enabled in <svg> tag
-		var useStr = '<use xlink:href="#' + symbolId + '" transform="translate(' + fileData.x + ', ' + fileData.y + ')" />';
+		var useStr = '<use xlink:href="#' + symbolId + '" transform="translate(' + fileData.x + ', ' + fileData.y + ') scale(' + fileData.resolution + ' ' + fileData.resolution + ')" />';
 		storedUseStrs.push(useStr);
 	});
 
@@ -401,17 +411,9 @@ function __determineCanvasSize(files, options) {
 		item.w = item.width + frameBuffer;
 		item.h = item.height + frameBuffer;
 
-		if (isNaN(options.width)) {
-			options.width = item.width;
-		}
+		if (isNaN(options.width)) options.width = item.width;else options.width += item.width + frameBuffer;
 
-		if (isNaN(options.height)) {
-			options.height = item.height;
-		} else {
-			options.height += item.height;
-		}
-		options.width += frameBuffer;
-		options.height += frameBuffer;
+		if (isNaN(options.height)) options.height = item.height;else options.height += item.height + frameBuffer;
 	});
 
 	if (options.square) {
@@ -426,7 +428,7 @@ function __determineCanvasSize(files, options) {
 	// sort files based on the choosen options.sort method
 	console.log('will sort');
 	(0, _sorter.run)(options.sort, files);
-	console.log('will pack');
+	console.log('will pack width: ' + options.width + ' height: ' + options.height);
 	(0, _packing.pack)(options.algorithm, files, options);
 }
 
@@ -539,7 +541,7 @@ async function extractData(file, folderPath) {
 		}
 	}
 
-	return __getSizeOfFile(filePath).then(function (res) {
+	return __getSizeOfFile(filePath, resolution).then(function (res) {
 		var svgData = res;
 		svgData.name = resName;
 		svgData.url = filePath;
@@ -563,7 +565,7 @@ async function extractData(file, folderPath) {
 	// return svgData;
 }
 
-function __getSizeOfFile(filePath) {
+function __getSizeOfFile(filePath, resolution) {
 	var parser = new _xmldom.DOMParser();
 	// read the file
 	var fileBuffer = _fs2.default.readFileSync(filePath, 'utf8');
@@ -592,10 +594,12 @@ function __getSizeOfFile(filePath) {
 			var yIndex = 1;
 			var wIndex = 2;
 			var hIndex = 3;
-			viewBox.x = Number(viewBoxArr[xIndex]);
-			viewBox.y = Number(viewBoxArr[yIndex]);
-			viewBox.width = Number(viewBoxArr[wIndex]);
-			viewBox.height = Number(viewBoxArr[hIndex]);
+			viewBox.x = Number(viewBoxArr[xIndex]) * resolution;
+			viewBox.y = Number(viewBoxArr[yIndex]) * resolution;
+			viewBox.width = Number(viewBoxArr[wIndex]) * resolution;
+			viewBox.height = Number(viewBoxArr[hIndex]) * resolution;
+			// adjust based on resolution
+			svgDom.documentElement.setAttribute('viewbox', viewBox.x + ' ' + viewBox.y + ' ' + viewBox.width + ' ' + viewBox.height);
 		} else {
 			var DEFAULT_X = 0;
 			var DEFAULT_Y = 0;
@@ -618,12 +622,7 @@ function __getSizeOfFile(filePath) {
 	});
 }
 
-function convertSVGToPNGSpritesheet(spritesheetPath, svgs, themeJSON) {
-	generatePNG(spritesheetPath, svgs, themeJSON);
-	console.log('test');
-}
-
-async function generatePNG(svgSprtSheetPath, svgs, themeJSON) {
+async function generatePNG(svgSprtSheetPath, pngSpritesheetName, svgs, themeJSON) {
 	svgSprtSheetPath = _path2.default.posix.join(svgSprtSheetPath);
 	var svgString = _fs2.default.readFileSync(svgSprtSheetPath);
 
@@ -637,17 +636,19 @@ async function generatePNG(svgSprtSheetPath, svgs, themeJSON) {
 
 	var pathParsed = _path2.default.parse(svgSprtSheetPath);
 	var newSpriteSheetURL = _path2.default.posix.join(pathParsed.dir, pathParsed.name + '.png');
-	newSpriteSheetURL = newSpriteSheetURL.startsWith('/') ? newSpriteSheetURL : '/' + newSpriteSheetURL;
-	var newTexturePackerDef = generateTexturePackerDef(svgs, newSpriteSheetURL, width, height, themeJSON);
+	var targetName = pathParsed.name + '.png';
+	var newTexturePackerDef = generateTexturePackerDef(svgs, targetName, width, height, themeJSON);
 	var themeFileData = {
-		url: newSpriteSheetURL,
+		url: pngSpritesheetName,
 		metadata: {
 			spriteSheetPng: newTexturePackerDef
 		}
 	};
 	var savePath = _path2.default.posix.join(_path2.default.parse(svgSprtSheetPath).dir, _path2.default.parse(svgSprtSheetPath).name);
 	console.log(savePath);
-	var jsonString = JSON.stringify(themeFileData);
+
+	var prettyPrintLevel = 4;
+	var jsonString = JSON.stringify(themeFileData, null, prettyPrintLevel);
 	_fs2.default.writeFileSync(savePath + ".json", jsonString);
 	_fs2.default.writeFileSync(savePath + ".js", "export default " + jsonString);
 
@@ -679,7 +680,7 @@ async function saveImg(_ref) {
 	await page.goto(url, { waitUntil: "networkidle0", timeout: 60000 });
 	await page.setViewport({ width: width || 0, height: height || 0 });
 	await page.screenshot({
-		path: _path2.default.posix.join(dir, name + '_png.png'),
+		path: _path2.default.posix.join(dir, name + '.png'),
 		type: "png",
 		fullPage: true,
 		omitBackground: true
@@ -703,7 +704,7 @@ var generateTexturePackerDef = function generateTexturePackerDef(svgs, newSprite
 		for (var _iterator = keys[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
 			var prop = _step.value;
 
-			var key = prop + "_png";
+			var key = prop;
 			var assetInfo = themeJSON[prop];
 			if (!isFirst) {
 				newTexturePackerDef.meta = {
@@ -719,6 +720,8 @@ var generateTexturePackerDef = function generateTexturePackerDef(svgs, newSprite
 
 			var frameInfo = assetInfo.metadata.spriteSheetSvg.frame;
 			newTexturePackerDef.frames[key] = generateFrameInfo(frameInfo, newSpriteSheetURL);
+			newTexturePackerDef.frames[key].originalUrl = assetInfo.url;
+			if (assetInfo.metadata.resolution) newTexturePackerDef.frames[key].resolution;
 		}
 	} catch (err) {
 		_didIteratorError = true;

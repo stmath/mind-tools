@@ -36,21 +36,27 @@ export async function convertSpritesheet (folderPath, options = {}) {
 	Promise.all(svgPromises).then((values) => {
 		let svgs = values;
 		
-		/**
 		let name = 'Composite'
+
+		console.log('Extracting outline paths')
 		writeOutlinesToJSON(folderPath, name, svgs);
 
 		options.algorithm = options.hasOwnProperty('algorithm') ? options.algorithm : 'growing-binpacking';
 		options.sort = options.hasOwnProperty('sort') ? options.sort : 'maxside';
+		options.square = true;
+		console.log('Precalculating SVG spritesheet size');
 		__determineCanvasSize(svgs, options);
 
 		const outSvgName = path.resolve(folderPath, 'compositeSVG_spriteSheet.svg');
+		console.log('Constructing packed SVG spritesheet');
 		__generateImage(svgs, options, outSvgName)
 
+		console.log('Generating JSON data for mapping frames to resources');
 		let themeJSON = __generateJSON(svgs, folderPath, 'compositeSVG');
 
-		convertSVGToPNGSpritesheet(outSvgName, svgs, themeJSON);
-		 */
+		console.log('Converting spritesheet from SVG to PNG');
+		let pngName = createPath(folderPath, 'compositeSVG_spriteSheet.png');
+		generatePNG(outSvgName, pngName, svgs, themeJSON);
 	});
 	
 	
@@ -265,13 +271,14 @@ function __generateJSON (svgs, folderPath, fileNameRoot) {
 	// for each svg we need to store the data in a way that's consumable by the sdk
 	svgs.forEach((file) => {
 		// add by name, include reference to original url, and dimensions
-		themeObj[file.name] = {
+		themeObj[file.resourceName] = {
 			name: file.name,
+			resourceName: file.resourceName,
 			url: file.url,
 			type: 'image',
 			metadata: {
 				mipmap: true,
-				resolution: DEFAULT_RESOLUTION,
+				resolution: file.resolution,
 				spriteSheetSvg: {
 					frame: {
 						x: file.x,
@@ -282,6 +289,7 @@ function __generateJSON (svgs, folderPath, fileNameRoot) {
 				}
 			}
 		};
+		console.log('defined resolution: ' + themeObj[file.resourceName].metadata.resolution);
 
 		if (shouldDefer) {
 			themeObj[file.name].metadata.defer = true;
@@ -317,7 +325,6 @@ function __generateImage (files, options, outSvgName) {
 	let storedUseStrs = [];
 
 	files.forEach((fileData) => {
-		// console.log(fileData.svgDOM);
 		// xml does not like having multiple xml tags in one doc, lets remove them.
 		let allTags = Utils.getNodesByTagName('xml', fileData.svgDOM);
 		for (let i in allTags) {
@@ -346,7 +353,7 @@ function __generateImage (files, options, outSvgName) {
 
 			// store the <use> tag. This will allow to translate each svg within the spritesheet.
 		// xlink is needed for safari to support <use> tag's href attribute. xlink needs to be enabled in <svg> tag
-		let useStr = `<use xlink:href="#${symbolId}" transform="translate(${fileData.x}, ${fileData.y})" />`;
+		let useStr = `<use xlink:href="#${symbolId}" transform="translate(${fileData.x}, ${fileData.y}) scale(${fileData.resolution} ${fileData.resolution})" />`;
 		storedUseStrs.push(useStr);
 		
 	});
@@ -370,17 +377,11 @@ function __determineCanvasSize (files, options) {
 		item.w = item.width + frameBuffer;
 		item.h = item.height + frameBuffer;
 
-		if (isNaN(options.width)) {
-			options.width = item.width;
-		}
+        if (isNaN(options.width)) options.width = item.width;
+		else options.width += (item.width + frameBuffer);
 
-		if (isNaN(options.height)) {
-			options.height = item.height;
-		} else {
-			options.height += (item.height);
-		}
-		options.width += frameBuffer;
-		options.height += frameBuffer;
+		if (isNaN(options.height)) options.height = item.height;
+		else options.height += (item.height + frameBuffer);
 	});
 
 	if (options.square) {
@@ -395,7 +396,7 @@ function __determineCanvasSize (files, options) {
 	// sort files based on the choosen options.sort method
 	console.log('will sort')
 	sorterRun(options.sort, files);
-	console.log('will pack');
+	console.log(`will pack width: ${options.width} height: ${options.height}`);
 	pack(options.algorithm, files, options);
 }
 
@@ -507,7 +508,7 @@ async function extractData (file, folderPath) {
 		
 	}
 	
-	return __getSizeOfFile(filePath).then((res) => {
+	return __getSizeOfFile(filePath, resolution).then((res) => {
 		let svgData = res;
 		svgData.name = resName;
 		svgData.url = filePath;
@@ -533,7 +534,7 @@ async function extractData (file, folderPath) {
 	// return svgData;
 }
 
-function __getSizeOfFile (filePath) {
+function __getSizeOfFile (filePath, resolution) {
 	let parser = new DOMParser();
 	// read the file
 	let fileBuffer = fs.readFileSync(filePath, 'utf8');
@@ -562,10 +563,12 @@ function __getSizeOfFile (filePath) {
 			const yIndex = 1;
 			const wIndex = 2;
 			const hIndex = 3;
-			viewBox.x = Number(viewBoxArr[xIndex]);
-			viewBox.y = Number(viewBoxArr[yIndex]);
-			viewBox.width = Number(viewBoxArr[wIndex]);
-			viewBox.height = Number(viewBoxArr[hIndex]);
+			viewBox.x = Number(viewBoxArr[xIndex]) * resolution;
+			viewBox.y = Number(viewBoxArr[yIndex]) * resolution;
+			viewBox.width = Number(viewBoxArr[wIndex]) * resolution;
+			viewBox.height = Number(viewBoxArr[hIndex]) * resolution;
+			// adjust based on resolution
+			svgDom.documentElement.setAttribute('viewbox', `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`);
 		} else {
 			const DEFAULT_X = 0;
 			const DEFAULT_Y = 0;
@@ -588,13 +591,7 @@ function __getSizeOfFile (filePath) {
 	});
 }
 
-
-export function convertSVGToPNGSpritesheet (spritesheetPath, svgs, themeJSON) {
-	generatePNG(spritesheetPath, svgs, themeJSON);
-	console.log('test');
-}
-
-export async function generatePNG (svgSprtSheetPath, svgs, themeJSON) {
+export async function generatePNG (svgSprtSheetPath, pngSpritesheetName, svgs, themeJSON) {
 	svgSprtSheetPath = path.posix.join(svgSprtSheetPath);
 	let svgString = fs.readFileSync(svgSprtSheetPath);
 	let {width, height} = getSvgSize(svgString);
@@ -603,17 +600,19 @@ export async function generatePNG (svgSprtSheetPath, svgs, themeJSON) {
 
 	let pathParsed = path.parse(svgSprtSheetPath);
 	let newSpriteSheetURL = path.posix.join(pathParsed.dir, pathParsed.name + '.png');
-	newSpriteSheetURL = newSpriteSheetURL.startsWith('/') ? newSpriteSheetURL : '/' + newSpriteSheetURL;
-	let newTexturePackerDef = generateTexturePackerDef(svgs, newSpriteSheetURL, width, height, themeJSON);
+	let targetName = pathParsed.name + '.png'
+	let newTexturePackerDef = generateTexturePackerDef(svgs, targetName, width, height, themeJSON);
 	let themeFileData = {
-		url: newSpriteSheetURL,
+		url: pngSpritesheetName,
 		metadata: {
 			spriteSheetPng: newTexturePackerDef
 		}
 	}
 	let savePath = path.posix.join(path.parse(svgSprtSheetPath).dir, path.parse(svgSprtSheetPath).name);
 	console.log(savePath);
-	let jsonString = JSON.stringify(themeFileData);
+
+	const prettyPrintLevel = 4;
+	let jsonString = JSON.stringify(themeFileData, null, prettyPrintLevel);
 	fs.writeFileSync(savePath + ".json", jsonString);
 	fs.writeFileSync(savePath + ".js", "export default " + jsonString);
 
@@ -636,7 +635,7 @@ async function saveImg({url, width, height, fromPath}) {
 	await page.goto(url, { waitUntil: "networkidle0", timeout: 60000 });
 	await page.setViewport({ width: width || 0, height: height || 0 });
 	await page.screenshot({
-		path: path.posix.join(dir, name + '_png.png'),
+		path: path.posix.join(dir, name + '.png'),
 		type: "png",
 		fullPage: true,
 		omitBackground: true
@@ -653,7 +652,7 @@ const generateTexturePackerDef = (svgs, newSpriteSheetURL, width, height, themeJ
 	let isFirst = false;
 	let keys = Object.keys(themeJSON);
 	for (let prop of keys) {
-		let key = prop + "_png";
+		let key = prop;
 		let assetInfo = themeJSON[prop];
 		if (!isFirst) {
 			newTexturePackerDef.meta = {
@@ -669,6 +668,8 @@ const generateTexturePackerDef = (svgs, newSpriteSheetURL, width, height, themeJ
 
 		let frameInfo = assetInfo.metadata.spriteSheetSvg.frame;
 		newTexturePackerDef.frames[key] = generateFrameInfo(frameInfo, newSpriteSheetURL);
+		newTexturePackerDef.frames[key].originalUrl = assetInfo.url;
+		if (assetInfo.metadata.resolution) newTexturePackerDef.frames[key].resolution;
 	}
 	return newTexturePackerDef;
 }
