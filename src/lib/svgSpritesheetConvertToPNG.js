@@ -8,6 +8,7 @@ import { run as sorterRun } from './utils/sorter';
 import { pack} from './utils/packing';
 import { default as Utils } from './utils/utils';
 import { default as SVGO } from 'svgo';
+import {getJsonFile, createPath, mkdir} from './common/file';
 
 const ERROR_EXIT = 1;
 const SVG_SIZE = /<svg[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*>/i;
@@ -27,7 +28,6 @@ export async function convertSpritesheet (folderPath, options = {}) {
 
 
 	// TODO:
-	// integrate Outlines.json process
 	// integrate svgCrop process, before optimize - NOTE: current implementation requires inkscape, which may be a non-starter
 
 	// TODO: figure out why I can't resolve resolution
@@ -36,6 +36,10 @@ export async function convertSpritesheet (folderPath, options = {}) {
 	Promise.all(svgPromises).then((values) => {
 		let svgs = values;
 		
+		/**
+		let name = 'Composite'
+		writeOutlinesToJSON(folderPath, name, svgs);
+
 		options.algorithm = options.hasOwnProperty('algorithm') ? options.algorithm : 'growing-binpacking';
 		options.sort = options.hasOwnProperty('sort') ? options.sort : 'maxside';
 		__determineCanvasSize(svgs, options);
@@ -43,9 +47,10 @@ export async function convertSpritesheet (folderPath, options = {}) {
 		const outSvgName = path.resolve(folderPath, 'compositeSVG_spriteSheet.svg');
 		__generateImage(svgs, options, outSvgName)
 
-		__generateJSON(svgs, folderPath, 'compositeSVG');
+		let themeJSON = __generateJSON(svgs, folderPath, 'compositeSVG');
 
-		convertSVGToPNGSpritesheet(outSvgName);
+		convertSVGToPNGSpritesheet(outSvgName, svgs, themeJSON);
+		 */
 	});
 	
 	
@@ -62,6 +67,87 @@ export async function convertSpritesheet (folderPath, options = {}) {
 	// arenas that require multiple outlines
 	// open package.json and rewrite mind.bundle-assets.assets
 	// 
+}
+
+
+
+function extractOutlineFromString (fileStr, id='outline') {
+    let outlineIndex = fileStr.indexOf(`id="${id}"`);
+    if (outlineIndex < 0) outlineIndex = fileStr.indexOf(`id='${id}'`);
+    if (outlineIndex > 0) {
+        // find the end of the element starting from the start of the outline id
+        let endElement = fileStr.indexOf('/>', outlineIndex);
+        let startElement = outlineIndex;
+        // iterate backwards until we find the start of the element
+        while (fileStr.charAt(startElement) !== '<') startElement--;
+        // add all to a single line, and convert double quotes to single quotes
+        let extractedPath = fileStr.slice(startElement, endElement + 1);
+        let doubleQuote = /"/gi;
+        let newline = /(\r\n|\n|\r)/gm
+        extractedPath = extractedPath.replace(doubleQuote, "'");
+        extractedPath = extractedPath.replace(newline, "");
+        return extractedPath;
+    }
+    return null;
+}
+
+function openFileForOutlines (folderPath, file, relativeSrc = undefined, outlinesToSearch) {
+	let resolvedPath = path.resolve(`${folderPath}/${file}`);
+	let contents = fs.readFileSync(resolvedPath, {encoding: 'utf-8'});
+	let extractedElements = [];
+
+	for (let iter = 0; iter < outlinesToSearch.length; iter++) {
+		let outlineId = outlinesToSearch[iter];
+		// check for outline id in both single and double quotes
+		let regexId = new RegExp(outlineId, "g"); 
+		if (contents && regexId) {
+			let allMatches = contents.match(regexId);
+			if (allMatches) {
+				for (let regexIter = 0; regexIter < allMatches.length; regexIter++) {
+					let outlineId = allMatches[regexIter];
+					let extractedPath = extractOutlineFromString(contents, outlineId); 
+					if (extractedPath) {
+						extractedElements.push({outlineId, extractedPath});
+					}
+				}
+			}
+		}
+	}
+	if (extractedElements.length > 0) {
+		let name = (relativeSrc !== undefined) ? relativeSrc + '/' + file : folderPath + '/' + file;
+		return {name: name, elements: extractedElements}
+	}
+	return undefined
+}
+
+function writeOutlinesToJSON (filePath, name, svgFiles, relativeDir) {
+    let outlineJSONStr = '{'
+    for (let iter = 0; iter < svgFiles.length; iter++) {
+		let file = svgFiles[iter];
+		if (file.outlineData === undefined) continue;
+
+        let fileName = file.name;
+        if (relativeDir !== undefined) {
+            fileName = relativeDir + fileName;
+        }
+        outlineJSONStr += `\n"${fileName}": {\n`;
+        for (let elemIter = 0; elemIter < file.elements.length; elemIter++) {
+            let element = file.elements[elemIter];
+            outlineJSONStr += `\t"${element.outlineId}": "${element.extractedPath}"`;
+            if (elemIter + 1 < file.elements.length) {
+                outlineJSONStr += ',\n';
+            } else {
+                outlineJSONStr += '\n\t}';
+            }
+        }
+        if (iter + 1 < svgFiles.length) {
+            outlineJSONStr += ',';
+        }
+    }
+    outlineJSONStr += '}';
+
+    let outlinePath = createPath(filePath, `${name}_Outlines.json`);
+    fs.writeFileSync(outlinePath, outlineJSONStr);
 }
 
 function __optimizeSVG (data, pathName, options) {
@@ -172,14 +258,14 @@ function __optimizeSVG (data, pathName, options) {
 }
 
 function __generateJSON (svgs, folderPath, fileNameRoot) {
-	let themObj = {};
+	let themeObj = {};
 	const DEFAULT_RESOLUTION = 1;
 	// let resToUse = (!isNaN(file.resolution)) ? file.resolution :(!isNaN(resolution)) ? resolution : DEFAULT_RESOLUTION,
 	const shouldDefer = false;
 	// for each svg we need to store the data in a way that's consumable by the sdk
 	svgs.forEach((file) => {
 		// add by name, include reference to original url, and dimensions
-		themObj[file.name] = {
+		themeObj[file.name] = {
 			name: file.name,
 			url: file.url,
 			type: 'image',
@@ -198,12 +284,16 @@ function __generateJSON (svgs, folderPath, fileNameRoot) {
 		};
 
 		if (shouldDefer) {
-			themObj[file.name].metadata.defer = true;
-			themObj[file.name].defer = true;
+			themeObj[file.name].metadata.defer = true;
+			themeObj[file.name].defer = true;
 		}
 	});
 
+	return themeObj;
+
+	// TODO: SVG data is not needed, these json/js files are not required
 	// store themeInfo in json
+	/**
 	const prettyPrintLevel = 4;
 	let themObjJson = JSON.stringify(themObj, null, prettyPrintLevel);
 
@@ -214,6 +304,7 @@ function __generateJSON (svgs, folderPath, fileNameRoot) {
 	let jsFileName = fileNameRoot + '_spriteSheet.js';
 	let jsPath = path.resolve(folderPath, jsFileName);
 	fs.writeFileSync(jsPath, `export default ${themObjJson.replace(/"/g, '\'')}`);
+	 */
 }
 
 function __generateImage (files, options, outSvgName) {
@@ -347,7 +438,11 @@ function findAllSVGs (folderPath) {
 }
 
 async function extractData (file, folderPath) {
+	const DEFAULT_RESOLUTION = 1;
 	let filePath = `${folderPath}/${file}`;
+
+	let outlineData = openFileForOutlines(folderPath, file, undefined, ['outline']);
+
 	let resName = file.replace('.svg', '');
 	let trimmedUrl = filePath;
 	if (trimmedUrl.startsWith('./')) trimmedUrl = trimmedUrl.replace('./', '');
@@ -355,6 +450,63 @@ async function extractData (file, folderPath) {
 	// trimmedUrl = trimmedUrl.replace('../', '').replace('./', '') + outSvgName; todo this will need to reference the composite spritesheet
 	if (!trimmedUrl.startsWith('/')) trimmedUrl = '/' + trimmedUrl;
 
+
+	let srcPath = path.resolve('./PixiArenas/');
+
+	const command = 'grep';
+	let args = ['-F', '-R', filePath, srcPath];
+	const spawn = child_process.spawnSync;
+	let results = spawn(command, args);
+	let resolution = DEFAULT_RESOLUTION;
+	let resourceName = '';
+	if (results && results.stdout) {
+		let out = results.stdout.toString();
+		let foundPath = out.split(':\t')[0];
+		let fileBuffer = fs.readFileSync(foundPath, 'utf8');
+		let idx = fileBuffer.indexOf(filePath);
+		if (idx >= 0) {
+			let startIdx = idx;
+			let openBraceCount = 0;
+			// TODO: use regex
+
+			// find the open brace for this resource definition
+			while (fileBuffer.charAt(startIdx) !== '{' || openBraceCount !== 0) {
+				if (fileBuffer.charAt(startIdx) === '}') openBraceCount++;
+				else if (fileBuffer.charAt(startIdx) === '{') openBraceCount--;
+				startIdx--;
+			}
+
+			// find the name of the resource object based on the next property with quotes
+			let resourceIdx = startIdx;
+			let endQuoteIdx = -1;
+			while (fileBuffer.charAt(resourceIdx) !== `'` || endQuoteIdx === -1) {
+				if (fileBuffer.charAt(resourceIdx) === `'`) endQuoteIdx = resourceIdx;
+				resourceIdx--;
+			}
+			resourceName = fileBuffer.slice(resourceIdx + 1, endQuoteIdx);
+
+			// find the end of the resource defintion by searching for the end brace relative to this start brace
+			let endIdx = startIdx + 1;
+			openBraceCount = 0;
+			while (fileBuffer.charAt(endIdx) !== '}' || openBraceCount !== 0) {
+				if (fileBuffer.charAt(endIdx) === '{') openBraceCount++;
+				else if (fileBuffer.charAt(endIdx) === '}') openBraceCount--;
+				endIdx++;
+			}
+
+			let resourceDefintion = fileBuffer.slice(startIdx, endIdx + 1);
+
+			let resolutionIdx = resourceDefintion.indexOf('resolution');
+			if (resolutionIdx >= 0 ) {
+				while(isNaN(parseInt(resourceDefintion.charAt(resolutionIdx)))) resolutionIdx++;
+				resolution = parseInt(resourceDefintion.charAt(resolutionIdx));
+			} else {
+				resolution = 2;
+			}
+		}
+		
+	}
+	
 	return __getSizeOfFile(filePath).then((res) => {
 		let svgData = res;
 		svgData.name = resName;
@@ -363,11 +515,12 @@ async function extractData (file, folderPath) {
 		svgData.path = filePath;
 		svgData.index = 'pending'
 		svgData.extension = 'svg';
-
-		console.log('return svgData: ' + svgData.processed);
+		svgData.outline = outlineData;
+		svgData.resourceName = resourceName;
+		svgData.resolution = resolution;
 		return svgData;
 	});
-
+ 
 
 	// let svgData = await __getSizeOfFile(filePath);
 
@@ -375,20 +528,6 @@ async function extractData (file, folderPath) {
 
 	// find instances of the given file in the src folder (searching for theme definition)
 
-/**
-
-	let srcPath = path.resolve('./PixiArenas/*');
-	let args = ['/S', '/M', `/C:"${filePath}"`, srcPath];
-	const command = (os.platform() === 'win32') ? 'findStr' : 'grep'; // todo will need to check grep command
-	const spawn = child_process.spawnSync;
-	let results = spawn(command, args );
-	if (results && results.output[1]) {
-		let out = results.output[1];
-		// console.log('1:' + results.output[1]);
-		// TODO: extract resolution from file
-		svgData.resolution = 2;
-	}
- */
 
 	
 	// return svgData;
@@ -402,9 +541,7 @@ function __getSizeOfFile (filePath) {
 	let svgDom = parser.parseFromString(fileBuffer.replace(/\s\s+/g, ' '));
 
 	let fullPath = path.resolve(filePath);
-	console.log('optimize: ' + fullPath);
 	return __optimizeSVG(svgDom, fullPath, {}).then(function (result) {
-		console.log('optimize completed');
 		fileBuffer = fs.readFileSync(filePath, 'utf8');
 		// white spaces generate too many text elems, lets remove them before parsing to xmldom.
 		svgDom = parser.parseFromString(fileBuffer.replace(/\s\s+/g, ' '));
@@ -452,19 +589,33 @@ function __getSizeOfFile (filePath) {
 }
 
 
-export function convertSVGToPNGSpritesheet (spritesheetPath) {
-	generatePNG(spritesheetPath);
+export function convertSVGToPNGSpritesheet (spritesheetPath, svgs, themeJSON) {
+	generatePNG(spritesheetPath, svgs, themeJSON);
 	console.log('test');
 }
 
-export async function generatePNG (svgSprtSheetPath, jsonDefPath = undefined) {
-	console.log(svgSprtSheetPath);
+export async function generatePNG (svgSprtSheetPath, svgs, themeJSON) {
 	svgSprtSheetPath = path.posix.join(svgSprtSheetPath);
-	console.log(svgSprtSheetPath);
 	let svgString = fs.readFileSync(svgSprtSheetPath);
 	let {width, height} = getSvgSize(svgString);
 	// get the absolute path
 	let dataUrl = 'file:///' + path.resolve(svgSprtSheetPath);
+
+	let pathParsed = path.parse(svgSprtSheetPath);
+	let newSpriteSheetURL = path.posix.join(pathParsed.dir, pathParsed.name + '.png');
+	newSpriteSheetURL = newSpriteSheetURL.startsWith('/') ? newSpriteSheetURL : '/' + newSpriteSheetURL;
+	let newTexturePackerDef = generateTexturePackerDef(svgs, newSpriteSheetURL, width, height, themeJSON);
+	let themeFileData = {
+		url: newSpriteSheetURL,
+		metadata: {
+			spriteSheetPng: newTexturePackerDef
+		}
+	}
+	let savePath = path.posix.join(path.parse(svgSprtSheetPath).dir, path.parse(svgSprtSheetPath).name);
+	console.log(savePath);
+	let jsonString = JSON.stringify(themeFileData);
+	fs.writeFileSync(savePath + ".json", jsonString);
+	fs.writeFileSync(savePath + ".js", "export default " + jsonString);
 
 	// async saveImg
 	await saveImg({
@@ -472,38 +623,10 @@ export async function generatePNG (svgSprtSheetPath, jsonDefPath = undefined) {
 		width,
 		height,
 		fromPath: svgSprtSheetPath
-	});
-
-	if (jsonDefPath) {
-		jsonDefPath = path.posix.join(jsonDefPath);
-
-		let jsonDef;
-		let pathParsed = path.parse(jsonDefPath);
-		let extensionOfFile = pathParsed.ext;
-		let newSpriteSheetURL = path.posix.join(pathParsed.dir, pathParsed.name + '_png.png');
-		newSpriteSheetURL = newSpriteSheetURL.startsWith('/') ? newSpriteSheetURL : '/' + newSpriteSheetURL;
-		if (extensionOfFile === '.json') {
-			jsonDef = JSON.parse(fs.readFileSync(jsonDefPath, { encoding: "utf8" }));
-		} else if (extensionOfFile === '.js') {
-			console.log('waiting');
-			// jsonDef = (await jspmImport(jsonDefPath)).default;
-		}
-		console.log(newSpriteSheetURL);
-
-		let newTexturePackerDef = generateTexturePackerDef(jsonDef, newSpriteSheetURL, width, height);
-		
-		let themeFileData = {
-			url: newSpriteSheetURL,
-			metadata: {
-				spriteSheetPng: newTexturePackerDef
-			}
-		}
-		let savePath = path.posix.join(path.parse(jsonDefPath).dir, path.parse(jsonDefPath).name + "_png");
-		let jsonString = JSON.stringify(themeFileData);
-		fs.writeFileSync(savePath + ".json", jsonString);
-		fs.writeFileSync(savePath + ".js", "export default " + jsonString);
-		console.log('end write');
-	}
+	}).then(() => {
+		console.log('PNG image has been saved from: ' + svgSprtSheetPath);
+		fs.unlinkSync(svgSprtSheetPath);
+	})
 }
 
 async function saveImg({url, width, height, fromPath}) {
@@ -522,16 +645,16 @@ async function saveImg({url, width, height, fromPath}) {
 	await browser.close();
 }
 
-const generateTexturePackerDef = (jsonDef, newSpriteSheetURL, width, height) => {
-	let keys = Object.keys(jsonDef);
+const generateTexturePackerDef = (svgs, newSpriteSheetURL, width, height, themeJSON) => {
 	let newTexturePackerDef = {
 		frames: {},
 		meta: {}
 	};
 	let isFirst = false;
+	let keys = Object.keys(themeJSON);
 	for (let prop of keys) {
 		let key = prop + "_png";
-		let assetInfo = jsonDef[prop];
+		let assetInfo = themeJSON[prop];
 		if (!isFirst) {
 			newTexturePackerDef.meta = {
 				app: "http://www.codeandweb.com/texturepacker",
@@ -545,14 +668,14 @@ const generateTexturePackerDef = (jsonDef, newSpriteSheetURL, width, height) => 
 		}
 
 		let frameInfo = assetInfo.metadata.spriteSheetSvg.frame;
-		newTexturePackerDef.frames[key] = generateFrameInfo(frameInfo);
+		newTexturePackerDef.frames[key] = generateFrameInfo(frameInfo, newSpriteSheetURL);
 	}
 	return newTexturePackerDef;
 }
 
-const generateFrameInfo = (frameInfo) => {
+const generateFrameInfo = (frameInfo, newSpriteSheetURL) => {
 	return {
-		// "url": newSpriteSheetURL,
+		"url": newSpriteSheetURL,
 		"frame": {
 			"x": frameInfo.x,
 			"y": frameInfo.y,

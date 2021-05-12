@@ -41,6 +41,8 @@ var _svgo = require('svgo');
 
 var _svgo2 = _interopRequireDefault(_svgo);
 
+var _file = require('./common/file');
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 var ERROR_EXIT = 1;
@@ -63,28 +65,25 @@ async function convertSpritesheet(folderPath) {
 
 
 	// TODO:
-	// integrate Outlines.json process
-	// integrate svgOptimize process
-
-
-	// integrate svgCrop process
+	// integrate svgCrop process, before optimize - NOTE: current implementation requires inkscape, which may be a non-starter
 
 	// TODO: figure out why I can't resolve resolution
 
 	var svgPromises = findAllSVGs(folderPath);
 	Promise.all(svgPromises).then(function (values) {
 		var svgs = values;
-		console.log('AWAIT COMPLETE');
-		options.algorithm = options.hasOwnProperty('algorithm') ? options.algorithm : 'growing-binpacking';
-		options.sort = options.hasOwnProperty('sort') ? options.sort : 'maxside';
-		__determineCanvasSize(svgs, options);
 
-		var outSvgName = _path2.default.resolve(folderPath, 'compositeSVG_spriteSheet.svg');
-		__generateImage(svgs, options, outSvgName);
-
-		__generateJSON(svgs, folderPath, 'compositeSVG');
-
-		convertSVGToPNGSpritesheet(outSvgName);
+		/**
+  let name = 'Composite'
+  writeOutlinesToJSON(folderPath, name, svgs);
+  		options.algorithm = options.hasOwnProperty('algorithm') ? options.algorithm : 'growing-binpacking';
+  options.sort = options.hasOwnProperty('sort') ? options.sort : 'maxside';
+  __determineCanvasSize(svgs, options);
+  		const outSvgName = path.resolve(folderPath, 'compositeSVG_spriteSheet.svg');
+  __generateImage(svgs, options, outSvgName)
+  		let themeJSON = __generateJSON(svgs, folderPath, 'compositeSVG');
+  		convertSVGToPNGSpritesheet(outSvgName, svgs, themeJSON);
+   */
 	});
 
 	/**
@@ -100,6 +99,91 @@ async function convertSpritesheet(folderPath) {
 	// arenas that require multiple outlines
 	// open package.json and rewrite mind.bundle-assets.assets
 	// 
+}
+
+function extractOutlineFromString(fileStr) {
+	var id = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'outline';
+
+	var outlineIndex = fileStr.indexOf('id="' + id + '"');
+	if (outlineIndex < 0) outlineIndex = fileStr.indexOf('id=\'' + id + '\'');
+	if (outlineIndex > 0) {
+		// find the end of the element starting from the start of the outline id
+		var endElement = fileStr.indexOf('/>', outlineIndex);
+		var startElement = outlineIndex;
+		// iterate backwards until we find the start of the element
+		while (fileStr.charAt(startElement) !== '<') {
+			startElement--;
+		} // add all to a single line, and convert double quotes to single quotes
+		var extractedPath = fileStr.slice(startElement, endElement + 1);
+		var doubleQuote = /"/gi;
+		var newline = /(\r\n|\n|\r)/gm;
+		extractedPath = extractedPath.replace(doubleQuote, "'");
+		extractedPath = extractedPath.replace(newline, "");
+		return extractedPath;
+	}
+	return null;
+}
+
+function openFileForOutlines(folderPath, file) {
+	var relativeSrc = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : undefined;
+	var outlinesToSearch = arguments[3];
+
+	var resolvedPath = _path2.default.resolve(folderPath + '/' + file);
+	var contents = _fs2.default.readFileSync(resolvedPath, { encoding: 'utf-8' });
+	var extractedElements = [];
+
+	for (var iter = 0; iter < outlinesToSearch.length; iter++) {
+		var outlineId = outlinesToSearch[iter];
+		// check for outline id in both single and double quotes
+		var regexId = new RegExp(outlineId, "g");
+		if (contents && regexId) {
+			var allMatches = contents.match(regexId);
+			if (allMatches) {
+				for (var regexIter = 0; regexIter < allMatches.length; regexIter++) {
+					var _outlineId = allMatches[regexIter];
+					var extractedPath = extractOutlineFromString(contents, _outlineId);
+					if (extractedPath) {
+						extractedElements.push({ outlineId: _outlineId, extractedPath: extractedPath });
+					}
+				}
+			}
+		}
+	}
+	if (extractedElements.length > 0) {
+		var name = relativeSrc !== undefined ? relativeSrc + '/' + file : folderPath + '/' + file;
+		return { name: name, elements: extractedElements };
+	}
+	return undefined;
+}
+
+function writeOutlinesToJSON(filePath, name, svgFiles, relativeDir) {
+	var outlineJSONStr = '{';
+	for (var iter = 0; iter < svgFiles.length; iter++) {
+		var file = svgFiles[iter];
+		if (file.outlineData === undefined) continue;
+
+		var fileName = file.name;
+		if (relativeDir !== undefined) {
+			fileName = relativeDir + fileName;
+		}
+		outlineJSONStr += '\n"' + fileName + '": {\n';
+		for (var elemIter = 0; elemIter < file.elements.length; elemIter++) {
+			var element = file.elements[elemIter];
+			outlineJSONStr += '\t"' + element.outlineId + '": "' + element.extractedPath + '"';
+			if (elemIter + 1 < file.elements.length) {
+				outlineJSONStr += ',\n';
+			} else {
+				outlineJSONStr += '\n\t}';
+			}
+		}
+		if (iter + 1 < svgFiles.length) {
+			outlineJSONStr += ',';
+		}
+	}
+	outlineJSONStr += '}';
+
+	var outlinePath = (0, _file.createPath)(filePath, name + '_Outlines.json');
+	_fs2.default.writeFileSync(outlinePath, outlineJSONStr);
 }
 
 function __optimizeSVG(data, pathName, options) {
@@ -204,28 +288,18 @@ function __optimizeSVG(data, pathName, options) {
 				console.error(e);
 			}
 		}
-
-		// {
-		//     // optimized SVG data string
-		//     data: '<svg width="10" height="20">test</svg>'
-		//     // additional info such as width/height
-		//     info: {
-		//         width: '10',
-		//         height: '20'
-		//     }
-		// }
 	});
 }
 
 function __generateJSON(svgs, folderPath, fileNameRoot) {
-	var themObj = {};
+	var themeObj = {};
 	var DEFAULT_RESOLUTION = 1;
 	// let resToUse = (!isNaN(file.resolution)) ? file.resolution :(!isNaN(resolution)) ? resolution : DEFAULT_RESOLUTION,
 	var shouldDefer = false;
 	// for each svg we need to store the data in a way that's consumable by the sdk
 	svgs.forEach(function (file) {
 		// add by name, include reference to original url, and dimensions
-		themObj[file.name] = {
+		themeObj[file.name] = {
 			name: file.name,
 			url: file.url,
 			type: 'image',
@@ -244,22 +318,27 @@ function __generateJSON(svgs, folderPath, fileNameRoot) {
 		};
 
 		if (shouldDefer) {
-			themObj[file.name].metadata.defer = true;
-			themObj[file.name].defer = true;
+			themeObj[file.name].metadata.defer = true;
+			themeObj[file.name].defer = true;
 		}
 	});
 
-	// store themeInfo in json
-	var prettyPrintLevel = 4;
-	var themObjJson = JSON.stringify(themObj, null, prettyPrintLevel);
+	return themeObj;
 
-	// write the xml
-	var jsonFileName = fileNameRoot + '_spriteSheet.json';
-	var jsonPath = _path2.default.resolve(folderPath, jsonFileName);
-	_fs2.default.writeFileSync(jsonPath, themObjJson);
-	var jsFileName = fileNameRoot + '_spriteSheet.js';
-	var jsPath = _path2.default.resolve(folderPath, jsFileName);
-	_fs2.default.writeFileSync(jsPath, 'export default ' + themObjJson.replace(/"/g, '\''));
+	// TODO: SVG data is not needed, these json/js files are not required
+	// store themeInfo in json
+	/**
+ const prettyPrintLevel = 4;
+ let themObjJson = JSON.stringify(themObj, null, prettyPrintLevel);
+ 
+ // write the xml
+ let jsonFileName = fileNameRoot + '_spriteSheet.json'
+ let jsonPath = path.resolve(folderPath, jsonFileName);
+ fs.writeFileSync(jsonPath, themObjJson);
+ let jsFileName = fileNameRoot + '_spriteSheet.js';
+ let jsPath = path.resolve(folderPath, jsFileName);
+ fs.writeFileSync(jsPath, `export default ${themObjJson.replace(/"/g, '\'')}`);
+  */
 }
 
 function __generateImage(files, options, outSvgName) {
@@ -361,7 +440,6 @@ function roundToPowerOfTwo(value) {
 }
 
 function findAllSVGs(folderPath) {
-	var cleanSVGs = [];
 	var promises = [];
 	var resolvedAssetDir = _path2.default.resolve(folderPath);
 	var type = 'svg';
@@ -376,8 +454,6 @@ function findAllSVGs(folderPath) {
 		}
 		var extractPromise = extractData(file, folderPath);
 		promises.push(extractPromise);
-		// let data = await extractData(file, folderPath);
-		// cleanSVGs.push(data);
 	});
 
 	var folders = results.filter(function (file) {
@@ -389,7 +465,6 @@ function findAllSVGs(folderPath) {
 			nextFolder = folderPath + '/' + folder;
 			var nextSet = findAllSVGs(nextFolder);
 			promises = promises.concat(nextSet);
-			// cleanSVGs = cleanSVGs.concat(nextSet);
 		} catch (e) {
 			console.log('unable to open ' + nextFolder);
 		}
@@ -398,13 +473,71 @@ function findAllSVGs(folderPath) {
 }
 
 async function extractData(file, folderPath) {
+	var DEFAULT_RESOLUTION = 1;
 	var filePath = folderPath + '/' + file;
+
+	var outlineData = openFileForOutlines(folderPath, file, undefined, ['outline']);
+
 	var resName = file.replace('.svg', '');
 	var trimmedUrl = filePath;
 	if (trimmedUrl.startsWith('./')) trimmedUrl = trimmedUrl.replace('./', '');
 	if (trimmedUrl.startsWith('../')) trimmedUrl = trimmedUrl.replace('../', '');
 	// trimmedUrl = trimmedUrl.replace('../', '').replace('./', '') + outSvgName; todo this will need to reference the composite spritesheet
 	if (!trimmedUrl.startsWith('/')) trimmedUrl = '/' + trimmedUrl;
+
+	var srcPath = _path2.default.resolve('./PixiArenas/');
+
+	var command = 'grep';
+	var args = ['-F', '-R', filePath, srcPath];
+	var spawn = _child_process2.default.spawnSync;
+	var results = spawn(command, args);
+	var resolution = DEFAULT_RESOLUTION;
+	var resourceName = '';
+	if (results && results.stdout) {
+		var out = results.stdout.toString();
+		var foundPath = out.split(':\t')[0];
+		var fileBuffer = _fs2.default.readFileSync(foundPath, 'utf8');
+		var idx = fileBuffer.indexOf(filePath);
+		if (idx >= 0) {
+			var startIdx = idx;
+			var openBraceCount = 0;
+			// TODO: use regex
+
+			// find the open brace for this resource definition
+			while (fileBuffer.charAt(startIdx) !== '{' || openBraceCount !== 0) {
+				if (fileBuffer.charAt(startIdx) === '}') openBraceCount++;else if (fileBuffer.charAt(startIdx) === '{') openBraceCount--;
+				startIdx--;
+			}
+
+			// find the name of the resource object based on the next property with quotes
+			var resourceIdx = startIdx;
+			var endQuoteIdx = -1;
+			while (fileBuffer.charAt(resourceIdx) !== '\'' || endQuoteIdx === -1) {
+				if (fileBuffer.charAt(resourceIdx) === '\'') endQuoteIdx = resourceIdx;
+				resourceIdx--;
+			}
+			resourceName = fileBuffer.slice(resourceIdx + 1, endQuoteIdx);
+
+			// find the end of the resource defintion by searching for the end brace relative to this start brace
+			var endIdx = startIdx + 1;
+			openBraceCount = 0;
+			while (fileBuffer.charAt(endIdx) !== '}' || openBraceCount !== 0) {
+				if (fileBuffer.charAt(endIdx) === '{') openBraceCount++;else if (fileBuffer.charAt(endIdx) === '}') openBraceCount--;
+				endIdx++;
+			}
+
+			var resourceDefintion = fileBuffer.slice(startIdx, endIdx + 1);
+
+			var resolutionIdx = resourceDefintion.indexOf('resolution');
+			if (resolutionIdx >= 0) {
+				while (isNaN(parseInt(resourceDefintion.charAt(resolutionIdx)))) {
+					resolutionIdx++;
+				}resolution = parseInt(resourceDefintion.charAt(resolutionIdx));
+			} else {
+				resolution = 2;
+			}
+		}
+	}
 
 	return __getSizeOfFile(filePath).then(function (res) {
 		var svgData = res;
@@ -414,8 +547,9 @@ async function extractData(file, folderPath) {
 		svgData.path = filePath;
 		svgData.index = 'pending';
 		svgData.extension = 'svg';
-
-		console.log('return svgData: ' + svgData.processed);
+		svgData.outline = outlineData;
+		svgData.resourceName = resourceName;
+		svgData.resolution = resolution;
 		return svgData;
 	});
 
@@ -425,20 +559,6 @@ async function extractData(file, folderPath) {
 
 	// find instances of the given file in the src folder (searching for theme definition)
 
-	/**
- 
- 	let srcPath = path.resolve('./PixiArenas/*');
- 	let args = ['/S', '/M', `/C:"${filePath}"`, srcPath];
- 	const command = (os.platform() === 'win32') ? 'findStr' : 'grep'; // todo will need to check grep command
- 	const spawn = child_process.spawnSync;
- 	let results = spawn(command, args );
- 	if (results && results.output[1]) {
- 		let out = results.output[1];
- 		// console.log('1:' + results.output[1]);
- 		// TODO: extract resolution from file
- 		svgData.resolution = 2;
- 	}
-  */
 
 	// return svgData;
 }
@@ -451,9 +571,7 @@ function __getSizeOfFile(filePath) {
 	var svgDom = parser.parseFromString(fileBuffer.replace(/\s\s+/g, ' '));
 
 	var fullPath = _path2.default.resolve(filePath);
-	console.log('optimize: ' + fullPath);
 	return __optimizeSVG(svgDom, fullPath, {}).then(function (result) {
-		console.log('optimize completed');
 		fileBuffer = _fs2.default.readFileSync(filePath, 'utf8');
 		// white spaces generate too many text elems, lets remove them before parsing to xmldom.
 		svgDom = parser.parseFromString(fileBuffer.replace(/\s\s+/g, ' '));
@@ -500,17 +618,13 @@ function __getSizeOfFile(filePath) {
 	});
 }
 
-function convertSVGToPNGSpritesheet(spritesheetPath) {
-	generatePNG(spritesheetPath);
+function convertSVGToPNGSpritesheet(spritesheetPath, svgs, themeJSON) {
+	generatePNG(spritesheetPath, svgs, themeJSON);
 	console.log('test');
 }
 
-async function generatePNG(svgSprtSheetPath) {
-	var jsonDefPath = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : undefined;
-
-	console.log(svgSprtSheetPath);
+async function generatePNG(svgSprtSheetPath, svgs, themeJSON) {
 	svgSprtSheetPath = _path2.default.posix.join(svgSprtSheetPath);
-	console.log(svgSprtSheetPath);
 	var svgString = _fs2.default.readFileSync(svgSprtSheetPath);
 
 	var _getSvgSize = getSvgSize(svgString),
@@ -521,44 +635,32 @@ async function generatePNG(svgSprtSheetPath) {
 
 	var dataUrl = 'file:///' + _path2.default.resolve(svgSprtSheetPath);
 
+	var pathParsed = _path2.default.parse(svgSprtSheetPath);
+	var newSpriteSheetURL = _path2.default.posix.join(pathParsed.dir, pathParsed.name + '.png');
+	newSpriteSheetURL = newSpriteSheetURL.startsWith('/') ? newSpriteSheetURL : '/' + newSpriteSheetURL;
+	var newTexturePackerDef = generateTexturePackerDef(svgs, newSpriteSheetURL, width, height, themeJSON);
+	var themeFileData = {
+		url: newSpriteSheetURL,
+		metadata: {
+			spriteSheetPng: newTexturePackerDef
+		}
+	};
+	var savePath = _path2.default.posix.join(_path2.default.parse(svgSprtSheetPath).dir, _path2.default.parse(svgSprtSheetPath).name);
+	console.log(savePath);
+	var jsonString = JSON.stringify(themeFileData);
+	_fs2.default.writeFileSync(savePath + ".json", jsonString);
+	_fs2.default.writeFileSync(savePath + ".js", "export default " + jsonString);
+
 	// async saveImg
 	await saveImg({
 		url: dataUrl,
 		width: width,
 		height: height,
 		fromPath: svgSprtSheetPath
+	}).then(function () {
+		console.log('PNG image has been saved from: ' + svgSprtSheetPath);
+		_fs2.default.unlinkSync(svgSprtSheetPath);
 	});
-
-	if (jsonDefPath) {
-		jsonDefPath = _path2.default.posix.join(jsonDefPath);
-
-		var jsonDef = void 0;
-		var pathParsed = _path2.default.parse(jsonDefPath);
-		var extensionOfFile = pathParsed.ext;
-		var newSpriteSheetURL = _path2.default.posix.join(pathParsed.dir, pathParsed.name + '_png.png');
-		newSpriteSheetURL = newSpriteSheetURL.startsWith('/') ? newSpriteSheetURL : '/' + newSpriteSheetURL;
-		if (extensionOfFile === '.json') {
-			jsonDef = JSON.parse(_fs2.default.readFileSync(jsonDefPath, { encoding: "utf8" }));
-		} else if (extensionOfFile === '.js') {
-			console.log('waiting');
-			// jsonDef = (await jspmImport(jsonDefPath)).default;
-		}
-		console.log(newSpriteSheetURL);
-
-		var newTexturePackerDef = generateTexturePackerDef(jsonDef, newSpriteSheetURL, width, height);
-
-		var themeFileData = {
-			url: newSpriteSheetURL,
-			metadata: {
-				spriteSheetPng: newTexturePackerDef
-			}
-		};
-		var savePath = _path2.default.posix.join(_path2.default.parse(jsonDefPath).dir, _path2.default.parse(jsonDefPath).name + "_png");
-		var jsonString = JSON.stringify(themeFileData);
-		_fs2.default.writeFileSync(savePath + ".json", jsonString);
-		_fs2.default.writeFileSync(savePath + ".js", "export default " + jsonString);
-		console.log('end write');
-	}
 }
 
 async function saveImg(_ref) {
@@ -586,13 +688,13 @@ async function saveImg(_ref) {
 	await browser.close();
 }
 
-var generateTexturePackerDef = function generateTexturePackerDef(jsonDef, newSpriteSheetURL, width, height) {
-	var keys = Object.keys(jsonDef);
+var generateTexturePackerDef = function generateTexturePackerDef(svgs, newSpriteSheetURL, width, height, themeJSON) {
 	var newTexturePackerDef = {
 		frames: {},
 		meta: {}
 	};
 	var isFirst = false;
+	var keys = Object.keys(themeJSON);
 	var _iteratorNormalCompletion = true;
 	var _didIteratorError = false;
 	var _iteratorError = undefined;
@@ -602,7 +704,7 @@ var generateTexturePackerDef = function generateTexturePackerDef(jsonDef, newSpr
 			var prop = _step.value;
 
 			var key = prop + "_png";
-			var assetInfo = jsonDef[prop];
+			var assetInfo = themeJSON[prop];
 			if (!isFirst) {
 				newTexturePackerDef.meta = {
 					app: "http://www.codeandweb.com/texturepacker",
@@ -616,7 +718,7 @@ var generateTexturePackerDef = function generateTexturePackerDef(jsonDef, newSpr
 			}
 
 			var frameInfo = assetInfo.metadata.spriteSheetSvg.frame;
-			newTexturePackerDef.frames[key] = generateFrameInfo(frameInfo);
+			newTexturePackerDef.frames[key] = generateFrameInfo(frameInfo, newSpriteSheetURL);
 		}
 	} catch (err) {
 		_didIteratorError = true;
@@ -636,9 +738,9 @@ var generateTexturePackerDef = function generateTexturePackerDef(jsonDef, newSpr
 	return newTexturePackerDef;
 };
 
-var generateFrameInfo = function generateFrameInfo(frameInfo) {
+var generateFrameInfo = function generateFrameInfo(frameInfo, newSpriteSheetURL) {
 	return {
-		// "url": newSpriteSheetURL,
+		"url": newSpriteSheetURL,
 		"frame": {
 			"x": frameInfo.x,
 			"y": frameInfo.y,

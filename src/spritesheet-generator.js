@@ -17,6 +17,14 @@ const optionDefinitions = [
 const options = commandLineArgs(optionDefinitions);
 
 console.log('finding assets in: ' + options.folder); 
+
+// todo:
+// args for
+// folder
+// outlines
+// optimization
+
+
 convertSpritesheet(options.folder);
 
 

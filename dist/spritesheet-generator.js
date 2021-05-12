@@ -27,6 +27,14 @@ var optionDefinitions = [{ name: 'spritesheet', alias: 's', type: String }, { na
 var options = (0, _commandLineArgs2.default)(optionDefinitions);
 
 console.log('finding assets in: ' + options.folder);
+
+// todo:
+// args for
+// folder
+// outlines
+// optimization
+
+
 (0, _svgSpritesheetConvertToPNG.convertSpritesheet)(options.folder);
 
 // console.log('generatePNG for: ' + options.spritesheet);
