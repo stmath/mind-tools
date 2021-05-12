@@ -21,10 +21,15 @@ var _svgSpritesheetConvertToPNG = require('./lib/svgSpritesheetConvertToPNG');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var optionDefinitions = [{ name: 'folder', alias: 'f', type: String }, { name: 'name', alias: 'n', type: String }];
+var optionDefinitions = [{ name: 'folder', alias: 'f', type: String }, { name: 'name', alias: 'n', type: String }, { name: 'outlineIds', alias: 'o', type: String }, { name: 'rewriteTheme', alias: 'r', type: Boolean }, // if true, the found svg resource definitions found will be removed
+{ name: 'spritesheetLoc', alias: 's', type: String }];
 
 var options = (0, _commandLineArgs2.default)(optionDefinitions);
+if (options.outlineIds) {
+	if (options.outlineIds.indexOf(',')) options.outlineIds.split(',');
+	options.outlineIds = [optionDefinitions.outlineIds];
+}
 
 console.log('finding assets in: ' + options.folder);
 
-(0, _svgSpritesheetConvertToPNG.convertSpritesheet)(options.folder, options.name);
+(0, _svgSpritesheetConvertToPNG.convertSpritesheet)(options);

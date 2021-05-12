@@ -10,11 +10,18 @@ import {wrapperFunction, generatePNG, convertSpritesheet} from './lib/svgSprites
 
 const optionDefinitions = [
 	{ name: 'folder', alias: 'f', type: String},
-	{ name: 'name', alias: 'n', type: String}
+	{ name: 'name', alias: 'n', type: String},
+	{ name: 'outlineIds', alias: 'o', type: String},
+	{ name: 'rewriteTheme', alias: 'r', type: Boolean}, // if true, the found svg resource definitions found will be removed
+	{ name: 'spritesheetLoc', alias: 's', type: String}
 ];
 
 const options = commandLineArgs(optionDefinitions);
+if (options.outlineIds) {
+	if (options.outlineIds.indexOf(',')) options.outlineIds.split(',');
+	options.outlineIds = [optionDefinitions.outlineIds];	
+}
 
 console.log('finding assets in: ' + options.folder); 
 
-convertSpritesheet(options.folder, options.name);
+convertSpritesheet(options);

@@ -47,16 +47,18 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 var ERROR_EXIT = 1;
 var SVG_SIZE = /<svg[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*>/i;
 
-async function convertSpritesheet(folderPath, name) {
-	var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+async function convertSpritesheet() {
+	var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 
 	// Unique steps for this automated conversion:
 	// 1: Extract outlines from all svg resources
 	// 2: Crop all svg resources
 	// 3: Optimize all svg resources (ensure this doesn't break step 1)
 	// 4: Generate a PNG spritesheet from SVG resources
+	var folderPath = options.folder;
+	var name = options.name;
 
-	options.outlines = options.hasOwnProperty('outlines') ? options.outlines : ['outline'];
+	options.outlineIds = options.hasOwnProperty('outlineIds') ? options.outlineIds : ['outline'];
 
 	var svgPromises = findAllSVGs(folderPath, options);
 	Promise.all(svgPromises).then(function (values) {
@@ -80,7 +82,7 @@ async function convertSpritesheet(folderPath, name) {
 
 		console.log('Converting spritesheet from SVG to PNG');
 		var pngName = (0, _file.createPath)(folderPath, name + 'SVG_spriteSheet.png');
-		generatePNG(outSvgName, pngName, svgs, themeJSON);
+		generatePNG(outSvgName, pngName, svgs, themeJSON, options);
 	});
 }
 
@@ -165,7 +167,7 @@ function writeOutlinesToJSON(filePath, name, svgFiles, relativeDir) {
 	}
 	outlineJSONStr += '}';
 
-	var outlinePath = (0, _file.createPath)(filePath, name + '_Outlines.json');
+	var outlinePath = _path2.default.resolve(filePath, '../' + name + '_Outlines.json');
 	_fs2.default.writeFileSync(outlinePath, outlineJSONStr);
 }
 
@@ -441,10 +443,10 @@ async function extractData(file, folderPath, options) {
 	if (trimmedUrl.startsWith('../')) trimmedUrl = trimmedUrl.replace('../', '');
 	if (!trimmedUrl.startsWith('/')) trimmedUrl = '/' + trimmedUrl;
 	// extract outline elements from this svg file, given the set of options 
-	var outlineData = openFileForOutlines(folderPath, file, undefined, options.outlines);
+	var outlineData = openFileForOutlines(folderPath, file, undefined, options.outlineIds);
 	// extract expected resolution and resourceName from arena's theme definitions
 
-	var _extractThemeInfo = extractThemeInfo(filePath),
+	var _extractThemeInfo = extractThemeInfo(filePath, options),
 	    resolution = _extractThemeInfo.resolution,
 	    resourceName = _extractThemeInfo.resourceName;
 	// parse the file to determine the expected dimensions of the rasterized SVG
@@ -463,7 +465,7 @@ async function extractData(file, folderPath, options) {
 	});
 }
 
-function extractThemeInfo(filePath) {
+function extractThemeInfo(filePath, options) {
 	var DEFAULT_RESOLUTION = 1;
 	var srcPath = _path2.default.resolve('./PixiArenas/');
 
@@ -505,7 +507,9 @@ function extractThemeInfo(filePath) {
 				if (fileBuffer.charAt(endIdx) === '{') openBraceCount++;else if (fileBuffer.charAt(endIdx) === '}') openBraceCount--;
 				endIdx++;
 			}
-			if (fileBuffer.charAt(endIdx + 1) === ',') endIdx++;
+			if (fileBuffer.charAt(endIdx + 1) === ',') {
+				endIdx++;
+			}
 
 			var resourceDefintion = fileBuffer.slice(startIdx, endIdx + 1);
 
@@ -518,11 +522,12 @@ function extractThemeInfo(filePath) {
 				resolution = 2;
 			}
 
-			// TODO: Option to remove reference to resource
-			var firstResource = fileBuffer.slice(0, resourceIdx);
-			var secondResource = fileBuffer.slice(endIdx) + 1;
-			var rewrite = firstResource + secondResource;
-			_fs2.default.writeFileSync(foundPath, rewrite, 'utf8');
+			if (options.rewriteTheme) {
+				var firstResource = fileBuffer.slice(0, resourceIdx);
+				var secondResource = fileBuffer.slice(endIdx + 1);
+				var rewrite = firstResource + secondResource;
+				_fs2.default.writeFileSync(foundPath, rewrite, 'utf8');
+			}
 		}
 	}
 	return { resolution: resolution, resourceName: resourceName };
@@ -585,7 +590,7 @@ function __getSizeOfFile(filePath, resolution) {
 	});
 }
 
-async function generatePNG(svgSprtSheetPath, pngSpritesheetName, svgs, themeJSON) {
+async function generatePNG(svgSprtSheetPath, pngSpritesheetName, svgs, themeJSON, options) {
 	svgSprtSheetPath = _path2.default.posix.join(svgSprtSheetPath);
 	var svgString = _fs2.default.readFileSync(svgSprtSheetPath);
 
@@ -607,13 +612,19 @@ async function generatePNG(svgSprtSheetPath, pngSpritesheetName, svgs, themeJSON
 			spriteSheetPng: newTexturePackerDef
 		}
 	};
-	var savePath = _path2.default.posix.join(_path2.default.parse(svgSprtSheetPath).dir, _path2.default.parse(svgSprtSheetPath).name);
+	var savePath = void 0;
+	if (options.spritesheetLoc) {
+		savePath = _path2.default.resolve(options.spritesheetLoc, pathParsed.name);
+	} else {
+		savePath = _path2.default.posix.join(_path2.default.parse(svgSprtSheetPath).dir, pathParsed.name);
+	}
+	savePath += '.js';
 	console.log(savePath);
 
 	var prettyPrintLevel = 4;
 	var jsonString = JSON.stringify(themeFileData, null, prettyPrintLevel);
 	// fs.writeFileSync(savePath + ".json", jsonString);
-	_fs2.default.writeFileSync(savePath + ".js", "export default " + jsonString);
+	_fs2.default.writeFileSync(savePath, "export default " + jsonString);
 
 	// async saveImg
 	await saveImg({
