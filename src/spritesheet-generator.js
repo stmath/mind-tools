@@ -8,25 +8,13 @@ import child_process from 'child_process';
 
 import {wrapperFunction, generatePNG, convertSpritesheet} from './lib/svgSpritesheetConvertToPNG';
 
-console.log('hello there');
 const optionDefinitions = [
-	{ name: 'spritesheet', alias: 's', type: String},
-	{ name: 'folder', alias: 'f', type: String}
+	{ name: 'folder', alias: 'f', type: String},
+	{ name: 'name', alias: 'n', type: String}
 ];
 
 const options = commandLineArgs(optionDefinitions);
 
 console.log('finding assets in: ' + options.folder); 
 
-// todo:
-// args for
-// folder
-// outlines
-// optimization
-
-
-convertSpritesheet(options.folder);
-
-
-// console.log('generatePNG for: ' + options.spritesheet);
-// wrapperFunction(options.spritesheet);
+convertSpritesheet(options.folder, options.name);
