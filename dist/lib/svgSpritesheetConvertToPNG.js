@@ -57,7 +57,6 @@ async function convertSpritesheet() {
 	// 4: Generate a PNG spritesheet from SVG resources
 	var folderPath = options.folder;
 	var name = options.name;
-
 	options.outlineIds = options.hasOwnProperty('outlineIds') ? options.outlineIds : ['outline'];
 
 	var svgPromises = findAllSVGs(folderPath, options);
@@ -136,6 +135,7 @@ function openFileForOutlines(folderPath, file) {
 	}
 	if (extractedElements.length > 0) {
 		var name = relativeSrc !== undefined ? relativeSrc + '/' + file : folderPath + '/' + file;
+		name = '/' + name;
 		return { name: name, elements: extractedElements };
 	}
 	return undefined;
@@ -143,29 +143,33 @@ function openFileForOutlines(folderPath, file) {
 
 function writeOutlinesToJSON(filePath, name, svgFiles, relativeDir) {
 	var outlineJSONStr = '{';
+	var initialJSON = true;
 	for (var iter = 0; iter < svgFiles.length; iter++) {
 		var file = svgFiles[iter];
-		if (file.outlineData === undefined) continue;
+		if (file.outline === undefined) continue;
 
-		var fileName = file.name;
+		var fileName = file.outline.name;
 		if (relativeDir !== undefined) {
 			fileName = relativeDir + fileName;
 		}
+
+		// 
+		if (!initialJSON) outlineJSONStr += ',';
+		if (initialJSON) initialJSON = false;
+
 		outlineJSONStr += '\n"' + fileName + '": {\n';
-		for (var elemIter = 0; elemIter < file.elements.length; elemIter++) {
-			var element = file.elements[elemIter];
+		var elements = file.outline.elements;
+		for (var elemIter = 0; elemIter < elements.length; elemIter++) {
+			var element = elements[elemIter];
 			outlineJSONStr += '\t"' + element.outlineId + '": "' + element.extractedPath + '"';
-			if (elemIter + 1 < file.elements.length) {
+			if (elemIter + 1 < elements.length) {
 				outlineJSONStr += ',\n';
 			} else {
 				outlineJSONStr += '\n\t}';
 			}
 		}
-		if (iter + 1 < svgFiles.length) {
-			outlineJSONStr += ',';
-		}
 	}
-	outlineJSONStr += '}';
+	outlineJSONStr += '\n}';
 
 	var outlinePath = _path2.default.resolve(filePath, '../' + name + '_Outlines.json');
 	_fs2.default.writeFileSync(outlinePath, outlineJSONStr);
@@ -478,55 +482,57 @@ function extractThemeInfo(filePath, options) {
 	if (results && results.stdout) {
 		var out = results.stdout.toString();
 		var foundPath = out.split(':\t')[0];
-		var fileBuffer = _fs2.default.readFileSync(foundPath, 'utf8');
-		var idx = fileBuffer.indexOf(filePath);
-		if (idx >= 0) {
-			var startIdx = idx;
-			var openBraceCount = 0;
-			// TODO: use regex
+		if (foundPath && foundPath.length > 0) {
+			var fileBuffer = _fs2.default.readFileSync(foundPath, 'utf8');
+			var idx = fileBuffer.indexOf(filePath);
+			if (idx >= 0) {
+				var startIdx = idx;
+				var openBraceCount = 0;
+				// TODO: use regex
 
-			// find the open brace for this resource definition
-			while (fileBuffer.charAt(startIdx) !== '{' || openBraceCount !== 0) {
-				if (fileBuffer.charAt(startIdx) === '}') openBraceCount++;else if (fileBuffer.charAt(startIdx) === '{') openBraceCount--;
-				startIdx--;
-			}
+				// find the open brace for this resource definition
+				while (fileBuffer.charAt(startIdx) !== '{' || openBraceCount !== 0) {
+					if (fileBuffer.charAt(startIdx) === '}') openBraceCount++;else if (fileBuffer.charAt(startIdx) === '{') openBraceCount--;
+					startIdx--;
+				}
 
-			// find the name of the resource object based on the next property with quotes
-			var resourceIdx = startIdx;
-			var endQuoteIdx = -1;
-			while (fileBuffer.charAt(resourceIdx) !== '\'' || endQuoteIdx === -1) {
-				if (fileBuffer.charAt(resourceIdx) === '\'') endQuoteIdx = resourceIdx;
-				resourceIdx--;
-			}
-			resourceName = fileBuffer.slice(resourceIdx + 1, endQuoteIdx);
+				// find the name of the resource object based on the next property with quotes
+				var resourceIdx = startIdx;
+				var endQuoteIdx = -1;
+				while (fileBuffer.charAt(resourceIdx) !== '\'' || endQuoteIdx === -1) {
+					if (fileBuffer.charAt(resourceIdx) === '\'') endQuoteIdx = resourceIdx;
+					resourceIdx--;
+				}
+				resourceName = fileBuffer.slice(resourceIdx + 1, endQuoteIdx);
 
-			// find the end of the resource defintion by searching for the end brace relative to this start brace
-			var endIdx = startIdx + 1;
-			openBraceCount = 0;
-			while (fileBuffer.charAt(endIdx) !== '}' || openBraceCount !== 0) {
-				if (fileBuffer.charAt(endIdx) === '{') openBraceCount++;else if (fileBuffer.charAt(endIdx) === '}') openBraceCount--;
-				endIdx++;
-			}
-			if (fileBuffer.charAt(endIdx + 1) === ',') {
-				endIdx++;
-			}
+				// find the end of the resource defintion by searching for the end brace relative to this start brace
+				var endIdx = startIdx + 1;
+				openBraceCount = 0;
+				while (fileBuffer.charAt(endIdx) !== '}' || openBraceCount !== 0) {
+					if (fileBuffer.charAt(endIdx) === '{') openBraceCount++;else if (fileBuffer.charAt(endIdx) === '}') openBraceCount--;
+					endIdx++;
+				}
+				if (fileBuffer.charAt(endIdx + 1) === ',') {
+					endIdx++;
+				}
 
-			var resourceDefintion = fileBuffer.slice(startIdx, endIdx + 1);
+				var resourceDefintion = fileBuffer.slice(startIdx, endIdx + 1);
 
-			var resolutionIdx = resourceDefintion.indexOf('resolution');
-			if (resolutionIdx >= 0) {
-				while (isNaN(parseInt(resourceDefintion.charAt(resolutionIdx)))) {
-					resolutionIdx++;
-				}resolution = parseInt(resourceDefintion.charAt(resolutionIdx));
-			} else {
-				resolution = 2;
-			}
+				var resolutionIdx = resourceDefintion.indexOf('resolution');
+				if (resolutionIdx >= 0) {
+					while (isNaN(parseInt(resourceDefintion.charAt(resolutionIdx)))) {
+						resolutionIdx++;
+					}resolution = parseInt(resourceDefintion.charAt(resolutionIdx));
+				} else {
+					resolution = 2;
+				}
 
-			if (options.rewriteTheme) {
-				var firstResource = fileBuffer.slice(0, resourceIdx);
-				var secondResource = fileBuffer.slice(endIdx + 1);
-				var rewrite = firstResource + secondResource;
-				_fs2.default.writeFileSync(foundPath, rewrite, 'utf8');
+				if (options.rewriteTheme) {
+					var firstResource = fileBuffer.slice(0, resourceIdx);
+					var secondResource = fileBuffer.slice(endIdx + 1);
+					var rewrite = firstResource + secondResource;
+					_fs2.default.writeFileSync(foundPath, rewrite, 'utf8');
+				}
 			}
 		}
 	}
@@ -694,7 +700,7 @@ var generateTexturePackerDef = function generateTexturePackerDef(svgs, newSprite
 
 			var frameInfo = assetInfo.metadata.spriteSheetSvg.frame;
 			newTexturePackerDef.frames[key] = generateFrameInfo(frameInfo, newSpriteSheetURL);
-			newTexturePackerDef.frames[key].originalUrl = assetInfo.url;
+			newTexturePackerDef.frames[key].originalUrl = '/' + assetInfo.url;
 			if (assetInfo.metadata.resolution) {
 				newTexturePackerDef.frames[key].resolution = assetInfo.metadata.resolution;
 			}

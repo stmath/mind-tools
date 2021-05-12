@@ -27,7 +27,7 @@ var optionDefinitions = [{ name: 'folder', alias: 'f', type: String }, { name: '
 var options = (0, _commandLineArgs2.default)(optionDefinitions);
 if (options.outlineIds) {
 	if (options.outlineIds.indexOf(',')) options.outlineIds.split(',');
-	options.outlineIds = [optionDefinitions.outlineIds];
+	options.outlineIds = [options.outlineIds];
 }
 
 console.log('finding assets in: ' + options.folder);

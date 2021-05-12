@@ -19,7 +19,7 @@ const optionDefinitions = [
 const options = commandLineArgs(optionDefinitions);
 if (options.outlineIds) {
 	if (options.outlineIds.indexOf(',')) options.outlineIds.split(',');
-	options.outlineIds = [optionDefinitions.outlineIds];	
+	options.outlineIds = [options.outlineIds];	
 }
 
 console.log('finding assets in: ' + options.folder); 

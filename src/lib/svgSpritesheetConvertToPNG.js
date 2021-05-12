@@ -21,7 +21,6 @@ export async function convertSpritesheet (options = {}) {
 	// 4: Generate a PNG spritesheet from SVG resources
 	let folderPath = options.folder;
 	let name = options.name;
-
 	options.outlineIds = options.hasOwnProperty('outlineIds') ? options.outlineIds : ['outline'];
 
 	let svgPromises = findAllSVGs(folderPath, options);
@@ -94,36 +93,41 @@ function openFileForOutlines (folderPath, file, relativeSrc = undefined, outline
 	}
 	if (extractedElements.length > 0) {
 		let name = (relativeSrc !== undefined) ? relativeSrc + '/' + file : folderPath + '/' + file;
-		return {name: name, elements: extractedElements}
+		name = '/' + name;
+		return {name: name, elements: extractedElements};
 	}
 	return undefined
 }
 
 function writeOutlinesToJSON (filePath, name, svgFiles, relativeDir) {
-    let outlineJSONStr = '{'
+	let outlineJSONStr = '{'
+	let initialJSON = true;
     for (let iter = 0; iter < svgFiles.length; iter++) {
 		let file = svgFiles[iter];
-		if (file.outlineData === undefined) continue;
+		if (file.outline === undefined) continue;
 
-        let fileName = file.name;
+        let fileName = file.outline.name;
         if (relativeDir !== undefined) {
             fileName = relativeDir + fileName;
-        }
-        outlineJSONStr += `\n"${fileName}": {\n`;
-        for (let elemIter = 0; elemIter < file.elements.length; elemIter++) {
-            let element = file.elements[elemIter];
+		}
+		
+		// 
+		if (!initialJSON) outlineJSONStr += ','
+		if (initialJSON) initialJSON = false;
+
+		outlineJSONStr += `\n"${fileName}": {\n`;
+		let elements = file.outline.elements;
+        for (let elemIter = 0; elemIter < elements.length; elemIter++) {
+            let element = elements[elemIter];
             outlineJSONStr += `\t"${element.outlineId}": "${element.extractedPath}"`;
-            if (elemIter + 1 < file.elements.length) {
+            if (elemIter + 1 < elements.length) {
                 outlineJSONStr += ',\n';
             } else {
                 outlineJSONStr += '\n\t}';
             }
         }
-        if (iter + 1 < svgFiles.length) {
-            outlineJSONStr += ',';
-        }
     }
-    outlineJSONStr += '}';
+    outlineJSONStr += '\n}';
 
     let outlinePath = path.resolve(filePath, `../${name}_Outlines.json`);
     fs.writeFileSync(outlinePath, outlineJSONStr);
@@ -434,58 +438,60 @@ function extractThemeInfo (filePath, options) {
 	if (results && results.stdout) {
 		let out = results.stdout.toString();
 		let foundPath = out.split(':\t')[0];
-		let fileBuffer = fs.readFileSync(foundPath, 'utf8');
-		let idx = fileBuffer.indexOf(filePath);
-		if (idx >= 0) {
-			let startIdx = idx;
-			let openBraceCount = 0;
-			// TODO: use regex
-
-			// find the open brace for this resource definition
-			while (fileBuffer.charAt(startIdx) !== '{' || openBraceCount !== 0) {
-				if (fileBuffer.charAt(startIdx) === '}') openBraceCount++;
-				else if (fileBuffer.charAt(startIdx) === '{') openBraceCount--;
-				startIdx--;
-			}
-
-			// find the name of the resource object based on the next property with quotes
-			let resourceIdx = startIdx;
-			let endQuoteIdx = -1;
-			while (fileBuffer.charAt(resourceIdx) !== `'` || endQuoteIdx === -1) {
-				if (fileBuffer.charAt(resourceIdx) === `'`) endQuoteIdx = resourceIdx;
-				resourceIdx--;
-			}
-			resourceName = fileBuffer.slice(resourceIdx + 1, endQuoteIdx);
-
-			// find the end of the resource defintion by searching for the end brace relative to this start brace
-			let endIdx = startIdx + 1;
-			openBraceCount = 0;
-			while (fileBuffer.charAt(endIdx) !== '}' || openBraceCount !== 0) {
-				if (fileBuffer.charAt(endIdx) === '{') openBraceCount++;
-				else if (fileBuffer.charAt(endIdx) === '}') openBraceCount--;
-				endIdx++;
-			}
-			if (fileBuffer.charAt(endIdx + 1) === ',') {
-				endIdx++;
-			}
-
-			let resourceDefintion = fileBuffer.slice(startIdx, endIdx + 1);
-
-			let resolutionIdx = resourceDefintion.indexOf('resolution');
-			if (resolutionIdx >= 0 ) {
-				while(isNaN(parseInt(resourceDefintion.charAt(resolutionIdx)))) resolutionIdx++;
-				resolution = parseInt(resourceDefintion.charAt(resolutionIdx));
-			} else {
-				resolution = 2;
-			}
-
-			if (options.rewriteTheme) {
-				let firstResource = fileBuffer.slice(0, resourceIdx);
-				let secondResource = fileBuffer.slice(endIdx + 1);
-				let rewrite = firstResource + secondResource;
-				fs.writeFileSync(foundPath, rewrite, 'utf8');
-			}
-		}	
+		if (foundPath && foundPath.length > 0) {
+			let fileBuffer = fs.readFileSync(foundPath, 'utf8');
+			let idx = fileBuffer.indexOf(filePath);
+			if (idx >= 0) {
+				let startIdx = idx;
+				let openBraceCount = 0;
+				// TODO: use regex
+	
+				// find the open brace for this resource definition
+				while (fileBuffer.charAt(startIdx) !== '{' || openBraceCount !== 0) {
+					if (fileBuffer.charAt(startIdx) === '}') openBraceCount++;
+					else if (fileBuffer.charAt(startIdx) === '{') openBraceCount--;
+					startIdx--;
+				}
+	
+				// find the name of the resource object based on the next property with quotes
+				let resourceIdx = startIdx;
+				let endQuoteIdx = -1;
+				while (fileBuffer.charAt(resourceIdx) !== `'` || endQuoteIdx === -1) {
+					if (fileBuffer.charAt(resourceIdx) === `'`) endQuoteIdx = resourceIdx;
+					resourceIdx--;
+				}
+				resourceName = fileBuffer.slice(resourceIdx + 1, endQuoteIdx);
+	
+				// find the end of the resource defintion by searching for the end brace relative to this start brace
+				let endIdx = startIdx + 1;
+				openBraceCount = 0;
+				while (fileBuffer.charAt(endIdx) !== '}' || openBraceCount !== 0) {
+					if (fileBuffer.charAt(endIdx) === '{') openBraceCount++;
+					else if (fileBuffer.charAt(endIdx) === '}') openBraceCount--;
+					endIdx++;
+				}
+				if (fileBuffer.charAt(endIdx + 1) === ',') {
+					endIdx++;
+				}
+	
+				let resourceDefintion = fileBuffer.slice(startIdx, endIdx + 1);
+	
+				let resolutionIdx = resourceDefintion.indexOf('resolution');
+				if (resolutionIdx >= 0 ) {
+					while(isNaN(parseInt(resourceDefintion.charAt(resolutionIdx)))) resolutionIdx++;
+					resolution = parseInt(resourceDefintion.charAt(resolutionIdx));
+				} else {
+					resolution = 2;
+				}
+	
+				if (options.rewriteTheme) {
+					let firstResource = fileBuffer.slice(0, resourceIdx);
+					let secondResource = fileBuffer.slice(endIdx + 1);
+					let rewrite = firstResource + secondResource;
+					fs.writeFileSync(foundPath, rewrite, 'utf8');
+				}
+			}	
+		}
 	}
 	return {resolution, resourceName};
 }
@@ -630,7 +636,7 @@ const generateTexturePackerDef = (svgs, newSpriteSheetURL, width, height, themeJ
 
 		let frameInfo = assetInfo.metadata.spriteSheetSvg.frame;
 		newTexturePackerDef.frames[key] = generateFrameInfo(frameInfo, newSpriteSheetURL);
-		newTexturePackerDef.frames[key].originalUrl = assetInfo.url;
+		newTexturePackerDef.frames[key].originalUrl = '/' + assetInfo.url;
 		if (assetInfo.metadata.resolution) {
 			newTexturePackerDef.frames[key].resolution = assetInfo.metadata.resolution;
 		}
