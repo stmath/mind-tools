@@ -2,13 +2,12 @@ import fs from 'fs';
 import path from 'path';
 import puppeteer from 'puppeteer';
 import child_process from 'child_process';
-import os from 'os';
 import {DOMParser, XMLSerializer} from 'xmldom';
 import { run as sorterRun } from './utils/sorter';
 import { pack} from './utils/packing';
 import { default as Utils } from './utils/utils';
 import { default as SVGO } from 'svgo';
-import {getJsonFile, createPath, mkdir} from './common/file';
+import {createPath} from './common/file';
 
 const ERROR_EXIT = 1;
 const SVG_SIZE = /<svg[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*>/i;
@@ -561,7 +560,6 @@ export async function generatePNG (svgSprtSheetPath, pngSpritesheetName, svgs, t
 	let dataUrl = 'file:///' + path.resolve(svgSprtSheetPath);
 
 	let pathParsed = path.parse(svgSprtSheetPath);
-	let newSpriteSheetURL = path.posix.join(pathParsed.dir, pathParsed.name + '.png');
 	let targetName = pathParsed.name + '.png'
 	let newTexturePackerDef = generateTexturePackerDef(svgs, targetName, width, height, themeJSON);
 	let themeFileData = {
@@ -581,7 +579,6 @@ export async function generatePNG (svgSprtSheetPath, pngSpritesheetName, svgs, t
 
 	const prettyPrintLevel = 4;
 	let jsonString = JSON.stringify(themeFileData, null, prettyPrintLevel);
-	// fs.writeFileSync(savePath + ".json", jsonString);
 	fs.writeFileSync(savePath, "export default " + jsonString);
 
 	// async saveImg
