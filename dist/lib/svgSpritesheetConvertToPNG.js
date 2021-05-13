@@ -22,10 +22,6 @@ var _child_process = require('child_process');
 
 var _child_process2 = _interopRequireDefault(_child_process);
 
-var _os = require('os');
-
-var _os2 = _interopRequireDefault(_os);
-
 var _xmldom = require('xmldom');
 
 var _sorter = require('./utils/sorter');
@@ -609,7 +605,6 @@ async function generatePNG(svgSprtSheetPath, pngSpritesheetName, svgs, themeJSON
 	var dataUrl = 'file:///' + _path2.default.resolve(svgSprtSheetPath);
 
 	var pathParsed = _path2.default.parse(svgSprtSheetPath);
-	var newSpriteSheetURL = _path2.default.posix.join(pathParsed.dir, pathParsed.name + '.png');
 	var targetName = pathParsed.name + '.png';
 	var newTexturePackerDef = generateTexturePackerDef(svgs, targetName, width, height, themeJSON);
 	var themeFileData = {
@@ -629,7 +624,6 @@ async function generatePNG(svgSprtSheetPath, pngSpritesheetName, svgs, themeJSON
 
 	var prettyPrintLevel = 4;
 	var jsonString = JSON.stringify(themeFileData, null, prettyPrintLevel);
-	// fs.writeFileSync(savePath + ".json", jsonString);
 	_fs2.default.writeFileSync(savePath, "export default " + jsonString);
 
 	// async saveImg
