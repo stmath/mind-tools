@@ -1,4 +1,4 @@
-import fs from 'fs';
+import fs, { linkSync } from 'fs';
 import path from 'path';
 import puppeteer from 'puppeteer';
 import child_process from 'child_process';
@@ -8,6 +8,7 @@ import { pack} from './utils/packing';
 import { default as Utils } from './utils/utils';
 import { default as SVGO } from 'svgo';
 import {createPath} from './common/file';
+import os from 'os';
 
 const ERROR_EXIT = 1;
 const SVG_SIZE = /<svg[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*>/i;
@@ -307,7 +308,7 @@ function __generateImage (files, options, outSvgName) {
 		
 		let xmlSerializer = new XMLSerializer();
 		let svgToString = xmlSerializer.serializeToString(fileData.svgDOM);
-		let symbolId = `---SYMBOL---${fileData.name}`;
+		let symbolId = `---SYMBOL---${fileData.url}_${fileData.name}`;
 		let symbolStr = `<symbol id="${symbolId}">${svgToString.replace(/\s\s+/g, ' ')}</symbol>`;
 		storedSymbolsStrs.push(symbolStr);
 
@@ -410,8 +411,9 @@ async function extractData (file, folderPath, options) {
 	let outlineData = openFileForOutlines(folderPath, file, undefined, options.outlineIds);
 	// extract expected resolution and resourceName from arena's theme definitions
 	let {resolution, resourceName} = extractThemeInfo(filePath, options);
+	
 	// parse the file to determine the expected dimensions of the rasterized SVG
-	return __getSizeOfFile(filePath, resolution).then((res) => {
+	return __getSizeOfFile(filePath, resolution, options).then((res) => {
 		let svgData = res;
 		svgData.name = resName;
 		svgData.url = filePath;
@@ -454,12 +456,34 @@ function extractThemeInfo (filePath, options) {
 	
 				// find the name of the resource object based on the next property with quotes
 				let resourceIdx = startIdx;
-				let endQuoteIdx = -1;
-				while (fileBuffer.charAt(resourceIdx) !== `'` || endQuoteIdx === -1) {
-					if (fileBuffer.charAt(resourceIdx) === `'`) endQuoteIdx = resourceIdx;
+				while (fileBuffer.charAt(resourceIdx) !== ':') {
 					resourceIdx--;
 				}
-				resourceName = fileBuffer.slice(resourceIdx + 1, endQuoteIdx);
+				let colonIdx = resourceIdx;
+				if (fileBuffer.charAt(resourceIdx) === `'` || fileBuffer.charAt(resourceIdx) === `"`) {
+					// find closing quote:
+					let targetQuote = fileBuffer.charAt(resourceIdx);
+					let quoteIdx = resourceIdx;
+					resourceIdx--;
+					while (fileBuffer.charAt(resourceIdx) !== targetQuote) resourceIdx--;
+
+					resourceName = fileBuffer.slice(resourceIdx + 1, quoteIdx);
+				} else {
+					// find the end of the word
+					let endChars = ['\n', '\t', ',', '\r'];
+					while(endChars.indexOf(fileBuffer.charAt(resourceIdx)) < 0 && resourceIdx > 0) {
+						if (startIdx - resourceIdx === 30) {
+							console.log('encountering parse issue:');
+							console.log(foundPath);
+							console.log(filePath);
+							console.log(`current path: ${fileBuffer.slice(resourceIdx, startIdx)}`);
+							break;
+						}
+						resourceIdx--;
+					}
+					resourceName = fileBuffer.slice(resourceIdx + 1, colonIdx);
+				}
+				
 	
 				// find the end of the resource defintion by searching for the end brace relative to this start brace
 				let endIdx = startIdx + 1;
@@ -472,7 +496,7 @@ function extractThemeInfo (filePath, options) {
 				if (fileBuffer.charAt(endIdx + 1) === ',') {
 					endIdx++;
 				}
-	
+
 				let resourceDefintion = fileBuffer.slice(startIdx, endIdx + 1);
 	
 				let resolutionIdx = resourceDefintion.indexOf('resolution');
@@ -495,14 +519,50 @@ function extractThemeInfo (filePath, options) {
 	return {resolution, resourceName};
 }
 
-function __getSizeOfFile (filePath, resolution) {
+function _cropFile (filePath, cropId = 'outline', ignoreCropDraw = false) {
+	if (ignoreCropDraw) {
+		let fileBuffer = fs.readFileSync(filePath, 'utf8');
+		let hasElement = fileBuffer.indexOf(cropId) >= 0;
+		if (!hasElement) return;
+	}
+
+	// CROP
+	let inkscapeCmd = '';
+	let fullPath = path.resolve(filePath);
+	let plat = os.platform();
+	if (plat === 'darwin') inkscapeCmd = '/Applications/Inkscape.app/Contents/Resources/bin/inkscape';
+	else if (plat === 'linux') inkscapeCmd = 'inkscape';
+	else if (plat === 'win32') inkscapeCmd = 'C:/Progra~1/Inkscape/inkscape.exe';
+	else console.log('Not sure what OS you are running. Let us know if you get this error.');
+
+	let cmdArgs;
+	if (inkscapeCmd) {
+		cmdArgs = []
+		cmdArgs.push(`--select=${cropId}`);
+		cmdArgs.push(`--verb=FitCanvasToSelectionOrDrawing`);
+		cmdArgs.push(`--verb=FileSave`);
+		cmdArgs.push(`--verb=FileQuit`);
+		cmdArgs.push(`${fullPath}`);
+	}
+
+	if (inkscapeCmd && cmdArgs) {
+		child_process.spawnSync(inkscapeCmd, cmdArgs);
+		let exportProcess = `--export-plain-svg="${fullPath}"`
+		child_process.spawnSync(inkscapeCmd, [fullPath, exportProcess]);
+	}
+}
+
+
+function __getSizeOfFile (filePath, resolution, options = {}) {
+	// crop the file to a given crop id (defaults to 'outline')
+	_cropFile(filePath, options.cropId, options.ignoreCropDraw);
+	let fullPath = path.resolve(filePath);
+	// parse the file to generate SVGDOM and prepare for optimization
 	let parser = new DOMParser();
 	// read the file
 	let fileBuffer = fs.readFileSync(filePath, 'utf8');
 	// white spaces generate too many text elems, lets remove them before parsing to xmldom.
 	let svgDom = parser.parseFromString(fileBuffer.replace(/\s\s+/g, ' '));
-
-	let fullPath = path.resolve(filePath);
 	return __optimizeSVG(svgDom, fullPath, {}).then(function (result) {
 		fileBuffer = fs.readFileSync(filePath, 'utf8');
 		// white spaces generate too many text elems, lets remove them before parsing to xmldom.

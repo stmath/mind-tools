@@ -13,7 +13,9 @@ const optionDefinitions = [
 	{ name: 'name', alias: 'n', type: String},
 	{ name: 'outlineIds', alias: 'o', type: String},
 	{ name: 'rewriteTheme', alias: 'r', type: Boolean}, // if true, the found svg resource definitions found will be removed
-	{ name: 'spritesheetLoc', alias: 's', type: String}
+	{ name: 'spritesheetLoc', alias: 's', type: String},
+	{ name: 'cropId', alias: 'c', type: String, defaultValue: 'outline'},
+	{ name: 'ignoreCropDraw', alias: 'i', type: Boolean}
 ];
 
 const options = commandLineArgs(optionDefinitions);

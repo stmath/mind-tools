@@ -22,7 +22,7 @@ var _svgSpritesheetConvertToPNG = require('./lib/svgSpritesheetConvertToPNG');
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 var optionDefinitions = [{ name: 'folder', alias: 'f', type: String }, { name: 'name', alias: 'n', type: String }, { name: 'outlineIds', alias: 'o', type: String }, { name: 'rewriteTheme', alias: 'r', type: Boolean }, // if true, the found svg resource definitions found will be removed
-{ name: 'spritesheetLoc', alias: 's', type: String }];
+{ name: 'spritesheetLoc', alias: 's', type: String }, { name: 'cropId', alias: 'c', type: String, defaultValue: 'outline' }, { name: 'ignoreCropDraw', alias: 'i', type: Boolean }];
 
 var options = (0, _commandLineArgs2.default)(optionDefinitions);
 if (options.outlineIds) {

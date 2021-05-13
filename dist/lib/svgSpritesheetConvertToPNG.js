@@ -38,6 +38,10 @@ var _svgo2 = _interopRequireDefault(_svgo);
 
 var _file = require('./common/file');
 
+var _os = require('os');
+
+var _os2 = _interopRequireDefault(_os);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 var ERROR_EXIT = 1;
@@ -344,7 +348,7 @@ function __generateImage(files, options, outSvgName) {
 
 		var xmlSerializer = new _xmldom.XMLSerializer();
 		var svgToString = xmlSerializer.serializeToString(fileData.svgDOM);
-		var symbolId = '---SYMBOL---' + fileData.name;
+		var symbolId = '---SYMBOL---' + fileData.url + '_' + fileData.name;
 		var symbolStr = '<symbol id="' + symbolId + '">' + svgToString.replace(/\s\s+/g, ' ') + '</symbol>';
 		storedSymbolsStrs.push(symbolStr);
 
@@ -449,10 +453,11 @@ async function extractData(file, folderPath, options) {
 	var _extractThemeInfo = extractThemeInfo(filePath, options),
 	    resolution = _extractThemeInfo.resolution,
 	    resourceName = _extractThemeInfo.resourceName;
+
 	// parse the file to determine the expected dimensions of the rasterized SVG
 
 
-	return __getSizeOfFile(filePath, resolution).then(function (res) {
+	return __getSizeOfFile(filePath, resolution, options).then(function (res) {
 		var svgData = res;
 		svgData.name = resName;
 		svgData.url = filePath;
@@ -494,12 +499,33 @@ function extractThemeInfo(filePath, options) {
 
 				// find the name of the resource object based on the next property with quotes
 				var resourceIdx = startIdx;
-				var endQuoteIdx = -1;
-				while (fileBuffer.charAt(resourceIdx) !== '\'' || endQuoteIdx === -1) {
-					if (fileBuffer.charAt(resourceIdx) === '\'') endQuoteIdx = resourceIdx;
+				while (fileBuffer.charAt(resourceIdx) !== ':') {
 					resourceIdx--;
 				}
-				resourceName = fileBuffer.slice(resourceIdx + 1, endQuoteIdx);
+				var colonIdx = resourceIdx;
+				if (fileBuffer.charAt(resourceIdx) === '\'' || fileBuffer.charAt(resourceIdx) === '"') {
+					// find closing quote:
+					var targetQuote = fileBuffer.charAt(resourceIdx);
+					var quoteIdx = resourceIdx;
+					resourceIdx--;
+					while (fileBuffer.charAt(resourceIdx) !== targetQuote) {
+						resourceIdx--;
+					}resourceName = fileBuffer.slice(resourceIdx + 1, quoteIdx);
+				} else {
+					// find the end of the word
+					var endChars = ['\n', '\t', ',', '\r'];
+					while (endChars.indexOf(fileBuffer.charAt(resourceIdx)) < 0 && resourceIdx > 0) {
+						if (startIdx - resourceIdx === 30) {
+							console.log('encountering parse issue:');
+							console.log(foundPath);
+							console.log(filePath);
+							console.log('current path: ' + fileBuffer.slice(resourceIdx, startIdx));
+							break;
+						}
+						resourceIdx--;
+					}
+					resourceName = fileBuffer.slice(resourceIdx + 1, colonIdx);
+				}
 
 				// find the end of the resource defintion by searching for the end brace relative to this start brace
 				var endIdx = startIdx + 1;
@@ -535,14 +561,51 @@ function extractThemeInfo(filePath, options) {
 	return { resolution: resolution, resourceName: resourceName };
 }
 
+function _cropFile(filePath) {
+	var cropId = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'outline';
+	var ignoreCropDraw = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
+
+	if (ignoreCropDraw) {
+		var fileBuffer = _fs2.default.readFileSync(filePath, 'utf8');
+		var hasElement = fileBuffer.indexOf(cropId) >= 0;
+		if (!hasElement) return;
+	}
+
+	// CROP
+	var inkscapeCmd = '';
+	var fullPath = _path2.default.resolve(filePath);
+	var plat = _os2.default.platform();
+	if (plat === 'darwin') inkscapeCmd = '/Applications/Inkscape.app/Contents/Resources/bin/inkscape';else if (plat === 'linux') inkscapeCmd = 'inkscape';else if (plat === 'win32') inkscapeCmd = 'C:/Progra~1/Inkscape/inkscape.exe';else console.log('Not sure what OS you are running. Let us know if you get this error.');
+
+	var cmdArgs = void 0;
+	if (inkscapeCmd) {
+		cmdArgs = [];
+		cmdArgs.push('--select=' + cropId);
+		cmdArgs.push('--verb=FitCanvasToSelectionOrDrawing');
+		cmdArgs.push('--verb=FileSave');
+		cmdArgs.push('--verb=FileQuit');
+		cmdArgs.push('' + fullPath);
+	}
+
+	if (inkscapeCmd && cmdArgs) {
+		_child_process2.default.spawnSync(inkscapeCmd, cmdArgs);
+		var exportProcess = '--export-plain-svg="' + fullPath + '"';
+		_child_process2.default.spawnSync(inkscapeCmd, [fullPath, exportProcess]);
+	}
+}
+
 function __getSizeOfFile(filePath, resolution) {
+	var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+
+	// crop the file to a given crop id (defaults to 'outline')
+	_cropFile(filePath, options.cropId, options.ignoreCropDraw);
+	var fullPath = _path2.default.resolve(filePath);
+	// parse the file to generate SVGDOM and prepare for optimization
 	var parser = new _xmldom.DOMParser();
 	// read the file
 	var fileBuffer = _fs2.default.readFileSync(filePath, 'utf8');
 	// white spaces generate too many text elems, lets remove them before parsing to xmldom.
 	var svgDom = parser.parseFromString(fileBuffer.replace(/\s\s+/g, ' '));
-
-	var fullPath = _path2.default.resolve(filePath);
 	return __optimizeSVG(svgDom, fullPath, {}).then(function (result) {
 		fileBuffer = _fs2.default.readFileSync(filePath, 'utf8');
 		// white spaces generate too many text elems, lets remove them before parsing to xmldom.
