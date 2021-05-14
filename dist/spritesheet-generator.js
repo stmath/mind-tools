@@ -32,6 +32,7 @@ if (options.outlineIds) {
 
 // if not provided define options based on expected naming conventions
 options.folder = options.hasOwnProperty('folder') ? options.folder : 'assets/' + options.gameName;
+options.name = options.hasOwnProperty('name') ? options.name : '' + options.gameName;
 options.outlineIds = options.hasOwnProperty('outlineIds') ? options.outlineIds : ['outline'];
 options.spritesheetLoc = options.hasOwnProperty('spritesheetLoc') ? options.spritesheetLoc : 'PixiArenas/' + options.gameName + '/spritesheet';
 
