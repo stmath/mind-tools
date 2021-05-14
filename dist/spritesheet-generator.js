@@ -35,19 +35,7 @@ options.folder = options.hasOwnProperty('folder') ? options.folder : 'assets/' +
 options.outlineIds = options.hasOwnProperty('outlineIds') ? options.outlineIds : ['outline'];
 options.spritesheetLoc = options.hasOwnProperty('spritesheetLoc') ? options.spritesheetLoc : 'PixiArenas/' + options.gameName + '/spritesheet';
 
-if (options.folder.indexOf(',') >= 0) {
-	var folders = options.folder.split(',');
-	for (var iter = 0; iter < folders.length; iter++) {
-		var folderPath = folders[iter];
-		var paths = folderPath.split('/');
-		var name = paths[paths.length - 1];
-		console.log('finding assets in: ' + folderPath);
-		(0, _svgSpritesheetConvertToPNG.convertSpritesheet)(folderPath, name, options);
-	}
-} else {
-	options.name = options.hasOwnProperty('name') ? options.name : '' + options.gameName;
-	var _folderPath = options.folder;
-	var _name = options.name;
-	console.log('finding assets in: ' + _folderPath);
-	(0, _svgSpritesheetConvertToPNG.convertSpritesheet)(_folderPath, _name, options);
-}
+console.log('finding assets in: ' + options.folder);
+var folderPath = options.folder;
+var name = options.name;
+(0, _svgSpritesheetConvertToPNG.convertSpritesheet)(folderPath, name, options);

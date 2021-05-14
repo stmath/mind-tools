@@ -677,7 +677,7 @@ function generatePNGjs (svgPath, pngName, pngPath, svgs, themeJSON, options) {
 	// parse info from svg and themeInfo toe generate a js class with required information to parse spritesheet
 	let newTexturePackerDef = generateTexturePackerDef(svgs, targetName, width, height, themeJSON);
 	let themeFileData = {
-		url: targetName,
+		url: '/' + targetName,
 		metadata: {
 			spriteSheetPng: newTexturePackerDef
 		}
