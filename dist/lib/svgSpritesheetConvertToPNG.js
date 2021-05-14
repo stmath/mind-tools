@@ -67,6 +67,7 @@ async function convertSpritesheet() {
 
 		// all opened buffers for theme objects should be saved
 		if (options.rewriteTheme) {
+			console.log('Rewriting theme files to remove SVG dependent resources');
 			var keys = Object.keys(themeBuffers);
 			for (var iter = 0; iter < keys.length; iter++) {
 				var filePath = keys[iter];
@@ -84,14 +85,15 @@ async function convertSpritesheet() {
 		console.log('Precalculating SVG spritesheet size');
 		__determineCanvasSize(svgs, options);
 
-		var outSvgName = _path2.default.resolve(folderPath, name + 'SVG_spriteSheet.svg');
+		var outSvgPath = _path2.default.resolve(folderPath, name + '_spriteSheet.svg');
 		console.log('Constructing packed SVG spritesheet');
-		__generateImage(svgs, options, outSvgName);
+		__generateImage(svgs, options, outSvgPath);
 
 		console.log('Generating JSON data for mapping frames to resources');
-		var themeJSON = __generateJSON(svgs, folderPath, name + 'SVG');
+		var themeJSON = __generateJSON(svgs);
 
 		if (options.removeSVGs) {
+			console.log('Remove SVG files added to spritesheet');
 			var parsedSVGs = Object.keys(svgs);
 			for (var _iter = 0; _iter < parsedSVGs.length; _iter++) {
 				var svgData = svgs[parsedSVGs[_iter]];
@@ -100,30 +102,56 @@ async function convertSpritesheet() {
 			}
 		}
 
+		// if not provided define expected spritesheet js location per expected naming conventions
+		options.spritesheetLoc = options.hasOwnProperty('spritesheetLoc') ? options.spritesheetLoc : 'PixiArenas/' + options.gameName + '/spritesheet';
+
 		console.log('Converting spritesheet from SVG to PNG');
-		var pngName = (0, _file.createPath)(folderPath, name + 'SVG_spriteSheet.png');
-		generatePNG(outSvgName, pngName, svgs, themeJSON, options);
-
-		if (options.spritesheetLoc) {
-			var gameName = options.gameName;
-			var rootSrc = 'PixiArenas/' + gameName;
-			var gameThemePath = _path2.default.resolve(rootSrc + '/' + gameName + 'Theme.js');
-			var readBuffer = _fs2.default.readFileSync(gameThemePath);
-			var importidx = readBuffer.lastIndexOf('import');
-			var endImports = readBuffer.indexOf('\n', importidx);
-
-			var relativeSpritesheet = '.' + options.spritesheetLoc.split(rootSrc)[1];
-			var importString = '\nimport { default as ' + name + 'SpritesheetData } from \'' + relativeSpritesheet + '/' + name + 'SVG_spriteSheet.js\';\n';
-			readBuffer = readBuffer.slice(0, endImports) + importString + readBuffer.slice(endImports + 1);
-
-			var gameStyleIdx = readBuffer.indexOf('gameStyles');
-			var styleIdx = readBuffer.indexOf('\n', gameStyleIdx);
-			var includeStyle = '\n\t' + name + 'Spritesheet: ' + name + 'SpritesheetData,\n';
-			readBuffer = readBuffer.slice(0, styleIdx) + includeStyle + readBuffer.slice(styleIdx + 1);
-
-			_fs2.default.writeFileSync(gameThemePath, readBuffer);
-		}
+		var pngName = name + '_spriteSheet';
+		var pngPath = (0, _file.createPath)(folderPath, pngName + '.png');
+		// generate and save the js class that stores frame info for spritesheets
+		generatePNGjs(outSvgPath, pngName, pngPath, svgs, themeJSON, options);
+		// include imports for the png js file into the game theme
+		writeThemeImport(pngName, options);
+		// convert the generated svg spritesheet into a png spritesheet
+		generatePNG(outSvgPath, pngPath);
 	});
+}
+
+function writeThemeImport(name, options) {
+	var gameName = options.gameName;
+	var rootSrc = 'PixiArenas/' + gameName;
+	// by convention main theme files should:
+	// 1) be located at the top of the game specific directory PixiArenas/GameName
+	// 2) be named with the game name followed by Theme.js
+	// 3) include a export for gameStyles
+	var gameThemePath = _path2.default.resolve(rootSrc + '/' + gameName + 'Theme.js');
+	var readBuffer = _fs2.default.readFileSync(gameThemePath);
+	var importidx = readBuffer.lastIndexOf('import');
+	var endImports = readBuffer.indexOf('\n', importidx);
+	if (importidx > 0 && endImports > 0) {
+		// write the import line for the spritesheet
+		var relativeSpritesheet = '.' + options.spritesheetLoc.split(rootSrc)[1];
+		var importString = '\nimport { default as ' + name + 'SpritesheetData } from \'' + relativeSpritesheet + '/' + name + '.js\';\n';
+		readBuffer = readBuffer.slice(0, endImports) + importString + readBuffer.slice(endImports + 1);
+	} else {
+		console.log('unable to resolve location for import of spritesheet data');
+		return;
+	}
+
+	var gameStyleIdx = readBuffer.indexOf('gameStyles');
+	if (gameStyleIdx >= 0) {
+		// write the import for the spritesheet data at the top of the gameStyles object
+		var styleIdx = readBuffer.indexOf('\n', gameStyleIdx);
+		var includeStyle = '\n\t' + name + ': ' + name + 'Data,\n';
+		readBuffer = readBuffer.slice(0, styleIdx) + includeStyle + readBuffer.slice(styleIdx + 1);
+	} else {
+		console.log('unable to resolve location for spritesheet theme in the game styles');
+		return;
+	}
+
+	// overwrite theme data with updated file
+	console.log('Add spritesheet import to: ' + gameThemePath);
+	_fs2.default.writeFileSync(gameThemePath, readBuffer);
 }
 
 function extractOutlineFromString(fileStr) {
@@ -321,7 +349,7 @@ function __optimizeSVG(data, pathName, options) {
 	});
 }
 
-function __generateJSON(svgs, folderPath, fileNameRoot) {
+function __generateJSON(svgs) {
 	var themeObj = {};
 	var DEFAULT_RESOLUTION = 1;
 	// let resToUse = (!isNaN(file.resolution)) ? file.resolution :(!isNaN(resolution)) ? resolution : DEFAULT_RESOLUTION,
@@ -553,7 +581,6 @@ function extractThemeInfo(filePath, options) {
 					while (fileBuffer.charAt(resourceIdx) !== targetQuote) {
 						resourceIdx--;
 					}resourceName = fileBuffer.slice(resourceIdx + 1, quoteIdx);
-					console.log(resourceName);
 				} else {
 					// find the end of the word
 					var endChars = ['\n', '\t', ',', '\r'];
@@ -627,6 +654,7 @@ function _cropFile(filePath) {
 	if (inkscapeCmd && cmdArgs) {
 		_child_process2.default.spawnSync(inkscapeCmd, cmdArgs);
 		var exportProcess = '--export-plain-svg="' + fullPath + '"';
+		console.log('Crop image: ' + fullPath);
 		_child_process2.default.spawnSync(inkscapeCmd, [fullPath, exportProcess]);
 	}
 }
@@ -692,45 +720,52 @@ function __getSizeOfFile(filePath, resolution) {
 	});
 }
 
-async function generatePNG(svgSprtSheetPath, pngSpritesheetName, svgs, themeJSON, options) {
-	svgSprtSheetPath = _path2.default.posix.join(svgSprtSheetPath);
-	var svgString = _fs2.default.readFileSync(svgSprtSheetPath);
+function generatePNGjs(svgPath, pngName, pngPath, svgs, themeJSON, options) {
+	var svgString = _fs2.default.readFileSync(svgPath);
 
 	var _getSvgSize = getSvgSize(svgString),
 	    width = _getSvgSize.width,
 	    height = _getSvgSize.height;
+
+	var targetName = pngPath;
+	// parse info from svg and themeInfo toe generate a js class with required information to parse spritesheet
+	var newTexturePackerDef = generateTexturePackerDef(svgs, targetName, width, height, themeJSON);
+	var themeFileData = {
+		url: targetName,
+		metadata: {
+			spriteSheetPng: newTexturePackerDef
+		}
+		// get the path for the js file and make the directory if needed
+	};var savePath = _path2.default.resolve(options.spritesheetLoc);
+	// create the path if not already there
+	if (!_fs2.default.existsSync(savePath)) _fs2.default.mkdirSync(savePath);
+	// define the path to the location of the js file
+	savePath = _path2.default.resolve(options.spritesheetLoc, pngName + '.js');
+	// write file to that path
+	var prettyPrintLevel = 4;
+	var jsonString = JSON.stringify(themeFileData, null, prettyPrintLevel);
+	console.log('write js file to: ' + savePath);
+	_fs2.default.writeFileSync(savePath, "export default " + jsonString);
+}
+
+async function generatePNG(svgSprtSheetPath, pngPath, options) {
+	var svgString = _fs2.default.readFileSync(svgSprtSheetPath);
+
+	var _getSvgSize2 = getSvgSize(svgString),
+	    width = _getSvgSize2.width,
+	    height = _getSvgSize2.height;
+
 	// get the absolute path
 
 
 	var dataUrl = 'file:///' + _path2.default.resolve(svgSprtSheetPath);
-
-	var pathParsed = _path2.default.parse(svgSprtSheetPath);
-	var targetName = pathParsed.name + '.png';
-	var newTexturePackerDef = generateTexturePackerDef(svgs, targetName, width, height, themeJSON);
-	var themeFileData = {
-		url: pngSpritesheetName,
-		metadata: {
-			spriteSheetPng: newTexturePackerDef
-		}
-	};
-	var savePath = void 0;
-	if (options.spritesheetLoc) {
-		savePath = _path2.default.resolve(options.spritesheetLoc, pathParsed.name);
-	} else {
-		savePath = _path2.default.posix.join(_path2.default.parse(svgSprtSheetPath).dir, pathParsed.name);
-	}
-	savePath += '.js';
-
-	var prettyPrintLevel = 4;
-	var jsonString = JSON.stringify(themeFileData, null, prettyPrintLevel);
-	_fs2.default.writeFileSync(savePath, "export default " + jsonString);
 
 	// async saveImg
 	await saveImg({
 		url: dataUrl,
 		width: width,
 		height: height,
-		fromPath: svgSprtSheetPath
+		toPath: pngPath
 	}).then(function () {
 		console.log('PNG image has been saved from: ' + svgSprtSheetPath);
 		_fs2.default.unlinkSync(svgSprtSheetPath);
@@ -741,12 +776,12 @@ async function saveImg(_ref) {
 	var url = _ref.url,
 	    width = _ref.width,
 	    height = _ref.height,
-	    fromPath = _ref.fromPath;
+	    toPath = _ref.toPath;
 
 	var browser = await _puppeteer2.default.launch({ headless: true });
 	var page = await browser.newPage();
 
-	var _path$parse = _path2.default.parse(fromPath),
+	var _path$parse = _path2.default.parse(toPath),
 	    name = _path$parse.name,
 	    dir = _path$parse.dir;
 
