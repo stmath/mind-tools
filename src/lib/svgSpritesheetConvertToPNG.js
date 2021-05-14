@@ -13,6 +13,8 @@ import os from 'os';
 const ERROR_EXIT = 1;
 const SVG_SIZE = /<svg[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*>/i;
 
+var themeBuffers = {};
+
 export async function convertSpritesheet (options = {}) {
 	// Unique steps for this automated conversion:
 	// 1: Extract outlines from all svg resources
@@ -27,6 +29,16 @@ export async function convertSpritesheet (options = {}) {
 	Promise.all(svgPromises).then((values) => {
 		let svgs = values;
 
+		// all opened buffers for theme objects should be saved
+		if (options.rewriteTheme) {
+			let keys = Object.keys(themeBuffers);
+			for (let iter = 0; iter < keys.length; iter++) {
+				let filePath = keys[iter];
+				console.log('rewrite: ' + filePath);
+				fs.writeFileSync(filePath, themeBuffers[filePath], 'utf8');
+			}
+		}
+		
 		console.log('Extracting outline paths')
 		writeOutlinesToJSON(folderPath, name, svgs);
 
@@ -43,9 +55,38 @@ export async function convertSpritesheet (options = {}) {
 		console.log('Generating JSON data for mapping frames to resources');
 		let themeJSON = __generateJSON(svgs, folderPath, `${name}SVG`);
 
+		if (options.removeSVGs) {
+			let parsedSVGs = Object.keys(svgs);
+			for (let iter = 0; iter < parsedSVGs.length; iter++) {
+				let svgData = svgs[parsedSVGs[iter]];
+				let pathToRemove = path.resolve(svgData.url);
+				fs.unlinkSync(pathToRemove);
+			}					
+		}
+
 		console.log('Converting spritesheet from SVG to PNG');
 		let pngName = createPath(folderPath, `${name}SVG_spriteSheet.png`);
 		generatePNG(outSvgName, pngName, svgs, themeJSON, options);
+
+		if (options.spritesheetLoc) {
+			let gameName = options.gameName;
+			let rootSrc = `PixiArenas/${gameName}`;
+			let gameThemePath = path.resolve(`${rootSrc}/${gameName}Theme.js`);
+			let readBuffer = fs.readFileSync(gameThemePath);
+			let importidx = readBuffer.lastIndexOf('import');
+			let endImports = readBuffer.indexOf('\n', importidx);
+
+			let relativeSpritesheet = `.${options.spritesheetLoc.split(rootSrc)[1]}`;
+			let importString = `\nimport { default as ${name}SpritesheetData } from '${relativeSpritesheet}/${name}SVG_spriteSheet.js';\n`
+			readBuffer = readBuffer.slice(0, endImports) + importString + readBuffer.slice(endImports+1);
+
+			let gameStyleIdx = readBuffer.indexOf('gameStyles');
+			let styleIdx = readBuffer.indexOf('\n', gameStyleIdx);
+			let includeStyle = `\n\t${name}Spritesheet: ${name}SpritesheetData,\n`;
+			readBuffer = readBuffer.slice(0, styleIdx) + includeStyle + readBuffer.slice(styleIdx+1);
+
+			fs.writeFileSync(gameThemePath, readBuffer);
+		}
 	});
 }
 
@@ -440,7 +481,8 @@ function extractThemeInfo (filePath, options) {
 		let out = results.stdout.toString();
 		let foundPath = out.split(':\t')[0];
 		if (foundPath && foundPath.length > 0) {
-			let fileBuffer = fs.readFileSync(foundPath, 'utf8');
+			let fileBuffer = themeBuffers[foundPath];
+			if (!fileBuffer) fileBuffer = fs.readFileSync(foundPath, 'utf8');
 			let idx = fileBuffer.indexOf(filePath);
 			if (idx >= 0) {
 				let startIdx = idx;
@@ -511,8 +553,10 @@ function extractThemeInfo (filePath, options) {
 					let firstResource = fileBuffer.slice(0, resourceIdx);
 					let secondResource = fileBuffer.slice(endIdx + 1);
 					let rewrite = firstResource + secondResource;
-					fs.writeFileSync(foundPath, rewrite, 'utf8');
+					fileBuffer = rewrite;
 				}
+
+				themeBuffers[foundPath] = fileBuffer;
 			}	
 		}
 	}
@@ -555,7 +599,7 @@ function _cropFile (filePath, cropId = 'outline', ignoreCropDraw = false) {
 
 function __getSizeOfFile (filePath, resolution, options = {}) {
 	// crop the file to a given crop id (defaults to 'outline')
-	_cropFile(filePath, options.cropId, options.ignoreCropDraw);
+	if (!options.ignoreCrop) _cropFile(filePath, options.cropId, options.ignoreCropDraw);
 	let fullPath = path.resolve(filePath);
 	// parse the file to generate SVGDOM and prepare for optimization
 	let parser = new DOMParser();
@@ -635,7 +679,6 @@ export async function generatePNG (svgSprtSheetPath, pngSpritesheetName, svgs, t
 		savePath = path.posix.join(path.parse(svgSprtSheetPath).dir, pathParsed.name);
 	}
 	savePath += '.js'
-	console.log(savePath);
 
 	const prettyPrintLevel = 4;
 	let jsonString = JSON.stringify(themeFileData, null, prettyPrintLevel);

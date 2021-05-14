@@ -47,6 +47,8 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 var ERROR_EXIT = 1;
 var SVG_SIZE = /<svg[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*>/i;
 
+var themeBuffers = {};
+
 async function convertSpritesheet() {
 	var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 
@@ -62,6 +64,16 @@ async function convertSpritesheet() {
 	var svgPromises = findAllSVGs(folderPath, options);
 	Promise.all(svgPromises).then(function (values) {
 		var svgs = values;
+
+		// all opened buffers for theme objects should be saved
+		if (options.rewriteTheme) {
+			var keys = Object.keys(themeBuffers);
+			for (var iter = 0; iter < keys.length; iter++) {
+				var filePath = keys[iter];
+				console.log('rewrite: ' + filePath);
+				_fs2.default.writeFileSync(filePath, themeBuffers[filePath], 'utf8');
+			}
+		}
 
 		console.log('Extracting outline paths');
 		writeOutlinesToJSON(folderPath, name, svgs);
@@ -79,9 +91,38 @@ async function convertSpritesheet() {
 		console.log('Generating JSON data for mapping frames to resources');
 		var themeJSON = __generateJSON(svgs, folderPath, name + 'SVG');
 
+		if (options.removeSVGs) {
+			var parsedSVGs = Object.keys(svgs);
+			for (var _iter = 0; _iter < parsedSVGs.length; _iter++) {
+				var svgData = svgs[parsedSVGs[_iter]];
+				var pathToRemove = _path2.default.resolve(svgData.url);
+				_fs2.default.unlinkSync(pathToRemove);
+			}
+		}
+
 		console.log('Converting spritesheet from SVG to PNG');
 		var pngName = (0, _file.createPath)(folderPath, name + 'SVG_spriteSheet.png');
 		generatePNG(outSvgName, pngName, svgs, themeJSON, options);
+
+		if (options.spritesheetLoc) {
+			var gameName = options.gameName;
+			var rootSrc = 'PixiArenas/' + gameName;
+			var gameThemePath = _path2.default.resolve(rootSrc + '/' + gameName + 'Theme.js');
+			var readBuffer = _fs2.default.readFileSync(gameThemePath);
+			var importidx = readBuffer.lastIndexOf('import');
+			var endImports = readBuffer.indexOf('\n', importidx);
+
+			var relativeSpritesheet = '.' + options.spritesheetLoc.split(rootSrc)[1];
+			var importString = '\nimport { default as ' + name + 'SpritesheetData } from \'' + relativeSpritesheet + '/' + name + 'SVG_spriteSheet.js\';\n';
+			readBuffer = readBuffer.slice(0, endImports) + importString + readBuffer.slice(endImports + 1);
+
+			var gameStyleIdx = readBuffer.indexOf('gameStyles');
+			var styleIdx = readBuffer.indexOf('\n', gameStyleIdx);
+			var includeStyle = '\n\t' + name + 'Spritesheet: ' + name + 'SpritesheetData,\n';
+			readBuffer = readBuffer.slice(0, styleIdx) + includeStyle + readBuffer.slice(styleIdx + 1);
+
+			_fs2.default.writeFileSync(gameThemePath, readBuffer);
+		}
 	});
 }
 
@@ -484,7 +525,8 @@ function extractThemeInfo(filePath, options) {
 		var out = results.stdout.toString();
 		var foundPath = out.split(':\t')[0];
 		if (foundPath && foundPath.length > 0) {
-			var fileBuffer = _fs2.default.readFileSync(foundPath, 'utf8');
+			var fileBuffer = themeBuffers[foundPath];
+			if (!fileBuffer) fileBuffer = _fs2.default.readFileSync(foundPath, 'utf8');
 			var idx = fileBuffer.indexOf(filePath);
 			if (idx >= 0) {
 				var startIdx = idx;
@@ -553,8 +595,10 @@ function extractThemeInfo(filePath, options) {
 					var firstResource = fileBuffer.slice(0, resourceIdx);
 					var secondResource = fileBuffer.slice(endIdx + 1);
 					var rewrite = firstResource + secondResource;
-					_fs2.default.writeFileSync(foundPath, rewrite, 'utf8');
+					fileBuffer = rewrite;
 				}
+
+				themeBuffers[foundPath] = fileBuffer;
 			}
 		}
 	}
@@ -598,7 +642,7 @@ function __getSizeOfFile(filePath, resolution) {
 	var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
 
 	// crop the file to a given crop id (defaults to 'outline')
-	_cropFile(filePath, options.cropId, options.ignoreCropDraw);
+	if (!options.ignoreCrop) _cropFile(filePath, options.cropId, options.ignoreCropDraw);
 	var fullPath = _path2.default.resolve(filePath);
 	// parse the file to generate SVGDOM and prepare for optimization
 	var parser = new _xmldom.DOMParser();
@@ -683,7 +727,6 @@ async function generatePNG(svgSprtSheetPath, pngSpritesheetName, svgs, themeJSON
 		savePath = _path2.default.posix.join(_path2.default.parse(svgSprtSheetPath).dir, pathParsed.name);
 	}
 	savePath += '.js';
-	console.log(savePath);
 
 	var prettyPrintLevel = 4;
 	var jsonString = JSON.stringify(themeFileData, null, prettyPrintLevel);

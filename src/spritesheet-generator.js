@@ -9,13 +9,16 @@ import child_process from 'child_process';
 import {wrapperFunction, generatePNG, convertSpritesheet} from './lib/svgSpritesheetConvertToPNG';
 
 const optionDefinitions = [
+	{ name: 'gameName', type: String},
 	{ name: 'folder', alias: 'f', type: String},
 	{ name: 'name', alias: 'n', type: String},
 	{ name: 'outlineIds', alias: 'o', type: String},
 	{ name: 'rewriteTheme', alias: 'r', type: Boolean}, // if true, the found svg resource definitions found will be removed
 	{ name: 'spritesheetLoc', alias: 's', type: String},
 	{ name: 'cropId', alias: 'c', type: String, defaultValue: 'outline'},
-	{ name: 'ignoreCropDraw', alias: 'i', type: Boolean}
+	{ name: 'ignoreCrop', type: Boolean},
+	{ name: 'ignoreCropDraw', type: Boolean},
+	{ name: 'removeSVGs', type: Boolean}
 ];
 
 const options = commandLineArgs(optionDefinitions);
