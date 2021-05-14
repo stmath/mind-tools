@@ -498,10 +498,9 @@ function extractThemeInfo (filePath, options) {
 	
 				// find the name of the resource object based on the next property with quotes
 				let resourceIdx = startIdx;
-				while (fileBuffer.charAt(resourceIdx) !== ':') {
-					resourceIdx--;
-				}
+				while (fileBuffer.charAt(resourceIdx) !== ':') resourceIdx--;
 				let colonIdx = resourceIdx;
+				resourceIdx--;
 				if (fileBuffer.charAt(resourceIdx) === `'` || fileBuffer.charAt(resourceIdx) === `"`) {
 					// find closing quote:
 					let targetQuote = fileBuffer.charAt(resourceIdx);
@@ -510,19 +509,11 @@ function extractThemeInfo (filePath, options) {
 					while (fileBuffer.charAt(resourceIdx) !== targetQuote) resourceIdx--;
 
 					resourceName = fileBuffer.slice(resourceIdx + 1, quoteIdx);
+					console.log(resourceName);
 				} else {
 					// find the end of the word
 					let endChars = ['\n', '\t', ',', '\r'];
-					while(endChars.indexOf(fileBuffer.charAt(resourceIdx)) < 0 && resourceIdx > 0) {
-						if (startIdx - resourceIdx === 30) {
-							console.log('encountering parse issue:');
-							console.log(foundPath);
-							console.log(filePath);
-							console.log(`current path: ${fileBuffer.slice(resourceIdx, startIdx)}`);
-							break;
-						}
-						resourceIdx--;
-					}
+					while(endChars.indexOf(fileBuffer.charAt(resourceIdx)) < 0 && resourceIdx > 0) resourceIdx--;
 					resourceName = fileBuffer.slice(resourceIdx + 1, colonIdx);
 				}
 				

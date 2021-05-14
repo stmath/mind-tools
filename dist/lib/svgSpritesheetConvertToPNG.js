@@ -543,8 +543,8 @@ function extractThemeInfo(filePath, options) {
 				var resourceIdx = startIdx;
 				while (fileBuffer.charAt(resourceIdx) !== ':') {
 					resourceIdx--;
-				}
-				var colonIdx = resourceIdx;
+				}var colonIdx = resourceIdx;
+				resourceIdx--;
 				if (fileBuffer.charAt(resourceIdx) === '\'' || fileBuffer.charAt(resourceIdx) === '"') {
 					// find closing quote:
 					var targetQuote = fileBuffer.charAt(resourceIdx);
@@ -553,20 +553,13 @@ function extractThemeInfo(filePath, options) {
 					while (fileBuffer.charAt(resourceIdx) !== targetQuote) {
 						resourceIdx--;
 					}resourceName = fileBuffer.slice(resourceIdx + 1, quoteIdx);
+					console.log(resourceName);
 				} else {
 					// find the end of the word
 					var endChars = ['\n', '\t', ',', '\r'];
 					while (endChars.indexOf(fileBuffer.charAt(resourceIdx)) < 0 && resourceIdx > 0) {
-						if (startIdx - resourceIdx === 30) {
-							console.log('encountering parse issue:');
-							console.log(foundPath);
-							console.log(filePath);
-							console.log('current path: ' + fileBuffer.slice(resourceIdx, startIdx));
-							break;
-						}
 						resourceIdx--;
-					}
-					resourceName = fileBuffer.slice(resourceIdx + 1, colonIdx);
+					}resourceName = fileBuffer.slice(resourceIdx + 1, colonIdx);
 				}
 
 				// find the end of the resource defintion by searching for the end brace relative to this start brace
