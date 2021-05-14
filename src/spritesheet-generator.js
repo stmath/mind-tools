@@ -27,6 +27,12 @@ if (options.outlineIds) {
 	options.outlineIds = [options.outlineIds];	
 }
 
-console.log('finding assets in: ' + options.folder); 
+// if not provided define options based on expected naming conventions
+options.folder = options.hasOwnProperty('folder') ? options.folder : `assets/${options.gameName}`;
+options.outlineIds = options.hasOwnProperty('outlineIds') ? options.outlineIds : ['outline'];
+options.spritesheetLoc = options.hasOwnProperty('spritesheetLoc') ? options.spritesheetLoc : `PixiArenas/${options.gameName}/spritesheet`;
 
-convertSpritesheet(options);
+console.log('finding assets in: ' + options.folder); 
+let folderPath = options.folder;
+let name = options.name;
+convertSpritesheet(folderPath, name, options);

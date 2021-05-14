@@ -49,17 +49,15 @@ var SVG_SIZE = /<svg[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^
 
 var themeBuffers = {};
 
-async function convertSpritesheet() {
-	var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+async function convertSpritesheet(folderPath, name) {
+	var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
 
 	// Unique steps for this automated conversion:
 	// 1: Extract outlines from all svg resources
 	// 2: Crop all svg resources
 	// 3: Optimize all svg resources (ensure this doesn't break step 1)
 	// 4: Generate a PNG spritesheet from SVG resources
-	var folderPath = options.folder;
-	var name = options.name;
-	options.outlineIds = options.hasOwnProperty('outlineIds') ? options.outlineIds : ['outline'];
+
 
 	var svgPromises = findAllSVGs(folderPath, options);
 	Promise.all(svgPromises).then(function (values) {
@@ -102,9 +100,6 @@ async function convertSpritesheet() {
 			}
 		}
 
-		// if not provided define expected spritesheet js location per expected naming conventions
-		options.spritesheetLoc = options.hasOwnProperty('spritesheetLoc') ? options.spritesheetLoc : 'PixiArenas/' + options.gameName + '/spritesheet';
-
 		console.log('Converting spritesheet from SVG to PNG');
 		var pngName = name + '_spriteSheet';
 		var pngPath = (0, _file.createPath)(folderPath, pngName + '.png');
@@ -131,7 +126,7 @@ function writeThemeImport(name, options) {
 	if (importidx > 0 && endImports > 0) {
 		// write the import line for the spritesheet
 		var relativeSpritesheet = '.' + options.spritesheetLoc.split(rootSrc)[1];
-		var importString = '\nimport { default as ' + name + 'SpritesheetData } from \'' + relativeSpritesheet + '/' + name + '.js\';\n';
+		var importString = '\nimport { default as ' + name + 'Data } from \'' + relativeSpritesheet + '/' + name + '.js\';\n';
 		readBuffer = readBuffer.slice(0, endImports) + importString + readBuffer.slice(endImports + 1);
 	} else {
 		console.log('unable to resolve location for import of spritesheet data');

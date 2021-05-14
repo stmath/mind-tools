@@ -15,15 +15,13 @@ const SVG_SIZE = /<svg[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))
 
 var themeBuffers = {};
 
-export async function convertSpritesheet (options = {}) {
+export async function convertSpritesheet (folderPath, name, options = {}) {
 	// Unique steps for this automated conversion:
 	// 1: Extract outlines from all svg resources
 	// 2: Crop all svg resources
 	// 3: Optimize all svg resources (ensure this doesn't break step 1)
 	// 4: Generate a PNG spritesheet from SVG resources
-	let folderPath = options.folder;
-	let name = options.name;
-	options.outlineIds = options.hasOwnProperty('outlineIds') ? options.outlineIds : ['outline'];
+
 
 	let svgPromises = findAllSVGs(folderPath, options);
 	Promise.all(svgPromises).then((values) => {
@@ -66,9 +64,6 @@ export async function convertSpritesheet (options = {}) {
 			}					
 		}
 
-		// if not provided define expected spritesheet js location per expected naming conventions
-		options.spritesheetLoc = options.hasOwnProperty('spritesheetLoc') ? options.spritesheetLoc : `PixiArenas/${options.gameName}/spritesheet`;
-
 		console.log('Converting spritesheet from SVG to PNG');
 		let pngName = `${name}_spriteSheet`
 		let pngPath = createPath(folderPath, pngName + '.png');
@@ -95,7 +90,7 @@ function writeThemeImport (name, options) {
 	if (importidx > 0 && endImports > 0) {
 		// write the import line for the spritesheet
 		let relativeSpritesheet = `.${options.spritesheetLoc.split(rootSrc)[1]}`;
-		let importString = `\nimport { default as ${name}SpritesheetData } from '${relativeSpritesheet}/${name}.js';\n`
+		let importString = `\nimport { default as ${name}Data } from '${relativeSpritesheet}/${name}.js';\n`
 		readBuffer = readBuffer.slice(0, endImports) + importString + readBuffer.slice(endImports+1);
 	} else {
 		console.log('unable to resolve location for import of spritesheet data');
