@@ -18,7 +18,8 @@ const optionDefinitions = [
 	{ name: 'cropId', alias: 'c', type: String, defaultValue: 'outline'},
 	{ name: 'ignoreCrop', type: Boolean},
 	{ name: 'ignoreCropDraw', type: Boolean},
-	{ name: 'removeSVGs', type: Boolean}
+	{ name: 'removeSVGs', type: Boolean},
+	{ name: 'debugEnabled', type: Boolean}
 ];
 
 const options = commandLineArgs(optionDefinitions);

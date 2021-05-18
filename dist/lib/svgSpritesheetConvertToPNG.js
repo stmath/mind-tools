@@ -46,8 +46,11 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 var ERROR_EXIT = 1;
 var SVG_SIZE = /<svg[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*>/i;
+var DEFAULT_RESOLUTION = 1;
+var TACTILE_SUFFIX = '_tactile';
 
 var themeBuffers = {};
+var DEBUG_ENABLED = false;
 
 async function convertSpritesheet(folderPath, name) {
 	var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
@@ -57,41 +60,49 @@ async function convertSpritesheet(folderPath, name) {
 	// 2: Crop all svg resources
 	// 3: Optimize all svg resources (ensure this doesn't break step 1)
 	// 4: Generate a PNG spritesheet from SVG resources
-
+	DEBUG_ENABLED = options.debugEnabled;
 
 	var svgPromises = findAllSVGs(folderPath, options);
 	Promise.all(svgPromises).then(function (values) {
-		var svgs = values;
+		var svgs = [];
+		// clean away any undefined properties in values;
+		for (var svgIter = 0; svgIter < values.length; svgIter++) {
+			if (values[svgIter] != undefined) {
+				svgs.push(values[svgIter]);
+			}
+		}
 
 		// all opened buffers for theme objects should be saved
 		if (options.rewriteTheme) {
-			console.log('Rewriting theme files to remove SVG dependent resources');
 			var keys = Object.keys(themeBuffers);
 			for (var iter = 0; iter < keys.length; iter++) {
 				var filePath = keys[iter];
-				console.log('rewrite: ' + filePath);
+				logFn('Rewriting theme file: ' + filePath);
 				_fs2.default.writeFileSync(filePath, themeBuffers[filePath], 'utf8');
 			}
 		}
 
-		console.log('Extracting outline paths');
-		writeOutlinesToJSON(folderPath, name, svgs);
+		logFn('Extracting outline paths');
+
+		var _writeOutlinesToJSON = writeOutlinesToJSON(folderPath, name, svgs),
+		    relativeOutlinePath = _writeOutlinesToJSON.relativeOutlinePath,
+		    hasOutlineElements = _writeOutlinesToJSON.hasOutlineElements;
 
 		options.algorithm = options.hasOwnProperty('algorithm') ? options.algorithm : 'growing-binpacking';
 		options.sort = options.hasOwnProperty('sort') ? options.sort : 'maxside';
 		options.square = true;
-		console.log('Precalculating SVG spritesheet size');
+		logFn('Precalculating SVG spritesheet size');
 		__determineCanvasSize(svgs, options);
 
 		var outSvgPath = _path2.default.resolve(folderPath, name + '_spriteSheet.svg');
-		console.log('Constructing packed SVG spritesheet');
-		__generateImage(svgs, options, outSvgPath);
+		logFn('Constructing packed SVG spritesheet');
+		__generateSVGSpritesheet(svgs, options, outSvgPath);
 
-		console.log('Generating JSON data for mapping frames to resources');
+		logFn('Generating JSON data for mapping frames to resources');
 		var themeJSON = __generateJSON(svgs);
 
 		if (options.removeSVGs) {
-			console.log('Remove SVG files added to spritesheet');
+			logFn('Remove SVG files added to spritesheet');
 			var parsedSVGs = Object.keys(svgs);
 			for (var _iter = 0; _iter < parsedSVGs.length; _iter++) {
 				var svgData = svgs[parsedSVGs[_iter]];
@@ -100,19 +111,27 @@ async function convertSpritesheet(folderPath, name) {
 			}
 		}
 
-		console.log('Converting spritesheet from SVG to PNG');
+		logFn('Converting spritesheet from SVG to PNG');
 		var pngName = name + '_spriteSheet';
 		var pngPath = (0, _file.createPath)(folderPath, pngName + '.png');
 		// generate and save the js class that stores frame info for spritesheets
 		generatePNGjs(outSvgPath, pngName, pngPath, svgs, themeJSON, options);
 		// include imports for the png js file into the game theme
-		writeThemeImport(pngName, options);
+		writeThemeImport(pngName, hasOutlineElements, relativeOutlinePath, options);
 		// convert the generated svg spritesheet into a png spritesheet
 		generatePNG(outSvgPath, pngPath);
 	});
 }
 
-function writeThemeImport(name, options) {
+function logFn(str) {
+	var force = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+
+	if (DEBUG_ENABLED || force) {
+		console.log(str);
+	}
+}
+
+function writeThemeImport(name, hasOutlineElements, relativeOutlinePath, options) {
 	var gameName = options.gameName;
 	var rootSrc = 'PixiArenas/' + gameName;
 	// by convention main theme files should:
@@ -129,7 +148,7 @@ function writeThemeImport(name, options) {
 		var importString = '\nimport { default as ' + name + 'Data } from \'' + relativeSpritesheet + '/' + name + '.js\';\n';
 		readBuffer = readBuffer.slice(0, endImports) + importString + readBuffer.slice(endImports + 1);
 	} else {
-		console.log('unable to resolve location for import of spritesheet data');
+		logFn('unable to resolve location for import of spritesheet data', true);
 		return;
 	}
 
@@ -138,14 +157,19 @@ function writeThemeImport(name, options) {
 		// write the import for the spritesheet data at the top of the gameStyles object
 		var styleIdx = readBuffer.indexOf('\n', gameStyleIdx);
 		var includeStyle = '\n\t' + name + ': ' + name + 'Data,\n';
+
+		if (hasOutlineElements) {
+			includeStyle += '\t' + name + 'Outlines: {\n\t\turl: \'' + relativeOutlinePath + '\',\n\t\tmetadata: {\n\t\t\tisOutline: ' + true + '\n\t\t}\n\t},\n';
+		}
+
 		readBuffer = readBuffer.slice(0, styleIdx) + includeStyle + readBuffer.slice(styleIdx + 1);
 	} else {
-		console.log('unable to resolve location for spritesheet theme in the game styles');
+		logFn('Unable to resolve location for spritesheet theme in the game styles', true);
 		return;
 	}
 
 	// overwrite theme data with updated file
-	console.log('Add spritesheet import to: ' + gameThemePath);
+	logFn('Add spritesheet import to: ' + gameThemePath);
 	_fs2.default.writeFileSync(gameThemePath, readBuffer);
 }
 
@@ -208,9 +232,10 @@ function openFileForOutlines(folderPath, file) {
 function writeOutlinesToJSON(filePath, name, svgFiles, relativeDir) {
 	var outlineJSONStr = '{';
 	var initialJSON = true;
+	var hasOutlineElements = false;
 	for (var iter = 0; iter < svgFiles.length; iter++) {
 		var file = svgFiles[iter];
-		if (file.outline === undefined) continue;
+		if (!file || file.outline === undefined) continue;
 
 		var fileName = file.outline.name;
 		if (relativeDir !== undefined) {
@@ -224,6 +249,7 @@ function writeOutlinesToJSON(filePath, name, svgFiles, relativeDir) {
 		outlineJSONStr += '\n"' + fileName + '": {\n';
 		var elements = file.outline.elements;
 		for (var elemIter = 0; elemIter < elements.length; elemIter++) {
+			hasOutlineElements = true;
 			var element = elements[elemIter];
 			outlineJSONStr += '\t"' + element.outlineId + '": "' + element.extractedPath + '"';
 			if (elemIter + 1 < elements.length) {
@@ -235,8 +261,21 @@ function writeOutlinesToJSON(filePath, name, svgFiles, relativeDir) {
 	}
 	outlineJSONStr += '\n}';
 
-	var outlinePath = _path2.default.resolve(filePath, '../' + name + '_Outlines.json');
-	_fs2.default.writeFileSync(outlinePath, outlineJSONStr);
+	var relativePath = (0, _file.createPath)(filePath, name + '_Outlines.json');
+	if (hasOutlineElements) {
+		var resolvedPath = _path2.default.resolve(relativePath);
+		_fs2.default.writeFileSync(resolvedPath, outlineJSONStr);
+		logFn('Write outlines to: ' + resolvedPath);
+	} else {
+		logFn('Skip Outlines.json - no outline elements found', true);
+		logFn('DEBUG - file will be written anyway');
+		hasOutlineElements = true;
+		var _resolvedPath = _path2.default.resolve(relativePath);
+		_fs2.default.writeFileSync(_resolvedPath, outlineJSONStr);
+	}
+	// TODO:
+	// Return info regaring the outline path if written.
+	return { relativeOutlinePath: relativePath, hasOutlineElements: hasOutlineElements };
 }
 
 function __optimizeSVG(data, pathName, options) {
@@ -346,7 +385,6 @@ function __optimizeSVG(data, pathName, options) {
 
 function __generateJSON(svgs) {
 	var themeObj = {};
-	var DEFAULT_RESOLUTION = 1;
 	// let resToUse = (!isNaN(file.resolution)) ? file.resolution :(!isNaN(resolution)) ? resolution : DEFAULT_RESOLUTION,
 	var shouldDefer = false;
 	// for each svg we need to store the data in a way that's consumable by the sdk
@@ -380,7 +418,7 @@ function __generateJSON(svgs) {
 	return themeObj;
 }
 
-function __generateImage(files, options, outSvgName) {
+function __generateSVGSpritesheet(files, options, outSvgName) {
 	var FIRST_INDEX = 0;
 	// stored strings in an array so we can join them with newlines.
 	// xlink is needed for safari to support <use> tag's href attribute
@@ -426,7 +464,6 @@ function __generateImage(files, options, outSvgName) {
 	var finalDocStr = '' + finalDocArr.join('\n');
 
 	options.svgDOMString = finalDocStr.replace(/\s\s+/, ' '); // optimize by removing newline spaces.
-	console.log(outSvgName);
 	_fs2.default.writeFileSync(outSvgName, finalDocStr);
 };
 
@@ -454,9 +491,7 @@ function __determineCanvasSize(files, options) {
 	}
 
 	// sort files based on the choosen options.sort method
-	console.log('will sort');
 	(0, _sorter.run)(options.sort, files);
-	console.log('will pack width: ' + options.width + ' height: ' + options.height);
 	(0, _packing.pack)(options.algorithm, files, options);
 }
 
@@ -484,7 +519,7 @@ function findAllSVGs(folderPath, options) {
 		if (file.endsWith('_spriteSheet.svg') || file.endsWith('_spriteSheet.png')) return;
 		// extract data from the given file
 		var extractPromise = extractData(file, folderPath, options);
-		promises.push(extractPromise);
+		if (extractPromise) promises.push(extractPromise);
 	});
 	// iterate over all folders in the directory to find more files
 	var folders = results.filter(function (file) {
@@ -496,7 +531,7 @@ function findAllSVGs(folderPath, options) {
 			// find all sub files in the folder and manage promises from extract data
 			promises = promises.concat(findAllSVGs(folderPath + '/' + folder, options));
 		} catch (e) {
-			console.log('unable to open ' + nextFolder);
+			logFn('unable to open ' + nextFolder, true);
 		}
 	});
 	return promises;
@@ -504,6 +539,7 @@ function findAllSVGs(folderPath, options) {
 
 async function extractData(file, folderPath, options) {
 	var filePath = folderPath + '/' + file;
+	logFn('Parse file: ' + filePath);
 	var resName = file.replace('.svg', '');
 	// trim the url to remove any relative directory information
 	var trimmedUrl = filePath;
@@ -518,9 +554,12 @@ async function extractData(file, folderPath, options) {
 	    resolution = _extractThemeInfo.resolution,
 	    resourceName = _extractThemeInfo.resourceName;
 
+	if (resourceName === '') {
+		logFn('Resource not found in theme: ' + filePath, true);
+		return;
+	}
+
 	// parse the file to determine the expected dimensions of the rasterized SVG
-
-
 	return __getSizeOfFile(filePath, resolution, options).then(function (res) {
 		var svgData = res;
 		svgData.name = resName;
@@ -534,90 +573,127 @@ async function extractData(file, folderPath, options) {
 	});
 }
 
-function extractThemeInfo(filePath, options) {
-	var DEFAULT_RESOLUTION = 1;
-	var srcPath = _path2.default.resolve('./PixiArenas/');
-
+function runGrep(searchString, searchPath) {
 	var command = 'grep';
-	var args = ['-F', '-R', filePath, srcPath];
+	var args = ['-F', '-R', searchString, searchPath];
 	var spawn = _child_process2.default.spawnSync;
-	var results = spawn(command, args);
-	var resolution = DEFAULT_RESOLUTION;
-	var resourceName = '';
+	return spawn(command, args);
+}
+
+function parseResourceDef(pathToResource, resUrl) {
+	var styleSuffix = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : undefined;
+
+	var resolution = DEFAULT_RESOLUTION; // resolution defined by the resource
+	var resourceName = ''; // id for the resource found in the theme file
+
+	var fileBuffer = themeBuffers[pathToResource];
+	if (!fileBuffer) fileBuffer = _fs2.default.readFileSync(pathToResource, 'utf8');
+	var idx = fileBuffer.indexOf(resUrl);
+	while (idx >= 0) {
+		var startIdx = idx;
+		var openBraceCount = 0;
+		// TODO: use regex
+
+		// find the open brace for this resource definition
+		while (fileBuffer.charAt(startIdx) !== '{' || openBraceCount !== 0) {
+			if (fileBuffer.charAt(startIdx) === '}') openBraceCount++;else if (fileBuffer.charAt(startIdx) === '{') openBraceCount--;
+			startIdx--;
+		}
+
+		// find the name of the resource object based on the next property with quotes
+		var resourceIdx = startIdx;
+		while (fileBuffer.charAt(resourceIdx) !== ':') {
+			resourceIdx--;
+		}var colonIdx = resourceIdx;
+		resourceIdx--;
+		if (fileBuffer.charAt(resourceIdx) === '\'' || fileBuffer.charAt(resourceIdx) === '"') {
+			// find closing quote:
+			var targetQuote = fileBuffer.charAt(resourceIdx);
+			var quoteIdx = resourceIdx;
+			resourceIdx--;
+			while (fileBuffer.charAt(resourceIdx) !== targetQuote) {
+				resourceIdx--;
+			}resourceName = fileBuffer.slice(resourceIdx + 1, quoteIdx);
+		} else {
+			// find the end of the word
+			var endChars = ['\n', '\t', ',', '\r'];
+			while (endChars.indexOf(fileBuffer.charAt(resourceIdx)) < 0 && resourceIdx > 0) {
+				resourceIdx--;
+			}resourceName = fileBuffer.slice(resourceIdx + 1, colonIdx);
+		}
+
+		// find the end of the resource defintion by searching for the end brace relative to this start brace
+		var endIdx = startIdx + 1;
+		openBraceCount = 0;
+		while (fileBuffer.charAt(endIdx) !== '}' || openBraceCount !== 0) {
+			if (fileBuffer.charAt(endIdx) === '{') openBraceCount++;else if (fileBuffer.charAt(endIdx) === '}') openBraceCount--;
+			endIdx++;
+		}
+		// check if there is a comma separating the next resource
+		if (fileBuffer.charAt(endIdx + 1) === ',') endIdx++;
+
+		// parse the resource defintion to find 'resolution' property
+		var resourceDefintion = fileBuffer.slice(startIdx, endIdx + 1);
+		var resolutionIdx = resourceDefintion.indexOf('resolution');
+		if (resolutionIdx >= 0) {
+			while (isNaN(parseInt(resourceDefintion.charAt(resolutionIdx))) && resolutionIdx < endIdx) {
+				if (resolutionIdx + 1 === endIdx) logFn(resolutionIdx + ' and ' + endIdx + ' a parsing error may have occurred'); // parsing error
+				resolutionIdx++;
+			}
+			if (resolutionIdx === endIdx) resolution = DEFAULT_RESOLUTION;else resolution = parseInt(resourceDefintion.charAt(resolutionIdx));
+		} else {
+			resolution = DEFAULT_RESOLUTION;
+			logFn('Resolution not found. Default: ' + DEFAULT_RESOLUTION + ' will be used');
+		}
+
+		if (styleSuffix !== undefined) {
+			resourceName = resourceName + styleSuffix;
+			logFn('Style suffix appended to resource: ' + resourceName + '. Theme will not be re-written');
+		} else {
+			var firstResource = fileBuffer.slice(0, resourceIdx);
+			var secondResource = fileBuffer.slice(endIdx + 1);
+			var rewrite = firstResource + secondResource;
+			fileBuffer = rewrite;
+			themeBuffers[pathToResource] = fileBuffer;
+		}
+
+		logFn('resourceName: ' + resourceName + ' resolution: ' + resolution);
+
+		idx = fileBuffer.indexOf(resUrl);
+	}
+	return { resolution: resolution, resourceName: resourceName };
+}
+
+function extractThemeInfo(filePath, options) {
+	var hasTactileSuffix = false; // if true the url has _tactile and is not mapped to a specific resource
+	var srcPath = _path2.default.resolve('./PixiArenas/');
+	var results = runGrep(filePath, srcPath);
 	if (results && results.stdout) {
 		var out = results.stdout.toString();
 		var foundPath = out.split(':\t')[0];
-		if (foundPath && foundPath.length > 0) {
-			var fileBuffer = themeBuffers[foundPath];
-			if (!fileBuffer) fileBuffer = _fs2.default.readFileSync(foundPath, 'utf8');
-			var idx = fileBuffer.indexOf(filePath);
-			if (idx >= 0) {
-				var startIdx = idx;
-				var openBraceCount = 0;
-				// TODO: use regex
+		var foundValidPath = foundPath && foundPath.length > 0;
 
-				// find the open brace for this resource definition
-				while (fileBuffer.charAt(startIdx) !== '{' || openBraceCount !== 0) {
-					if (fileBuffer.charAt(startIdx) === '}') openBraceCount++;else if (fileBuffer.charAt(startIdx) === '{') openBraceCount--;
-					startIdx--;
+		if (!foundValidPath) {
+			hasTactileSuffix = filePath.indexOf(TACTILE_SUFFIX) >= 0;
+			if (hasTactileSuffix) {
+				logFn('No resource definition found for tactile resource: ' + filePath, true);
+				var rootAsset = filePath.replace(TACTILE_SUFFIX, '');
+				var findRootResults = runGrep(rootAsset, srcPath);
+				if (findRootResults && findRootResults.stdout) {
+					foundPath = results.stdout.toString().split(':\t')[0];
+					foundValidPath = foundPath && foundPath.length > 0;
+					filePath = rootAsset;
 				}
-
-				// find the name of the resource object based on the next property with quotes
-				var resourceIdx = startIdx;
-				while (fileBuffer.charAt(resourceIdx) !== ':') {
-					resourceIdx--;
-				}var colonIdx = resourceIdx;
-				resourceIdx--;
-				if (fileBuffer.charAt(resourceIdx) === '\'' || fileBuffer.charAt(resourceIdx) === '"') {
-					// find closing quote:
-					var targetQuote = fileBuffer.charAt(resourceIdx);
-					var quoteIdx = resourceIdx;
-					resourceIdx--;
-					while (fileBuffer.charAt(resourceIdx) !== targetQuote) {
-						resourceIdx--;
-					}resourceName = fileBuffer.slice(resourceIdx + 1, quoteIdx);
-				} else {
-					// find the end of the word
-					var endChars = ['\n', '\t', ',', '\r'];
-					while (endChars.indexOf(fileBuffer.charAt(resourceIdx)) < 0 && resourceIdx > 0) {
-						resourceIdx--;
-					}resourceName = fileBuffer.slice(resourceIdx + 1, colonIdx);
-				}
-
-				// find the end of the resource defintion by searching for the end brace relative to this start brace
-				var endIdx = startIdx + 1;
-				openBraceCount = 0;
-				while (fileBuffer.charAt(endIdx) !== '}' || openBraceCount !== 0) {
-					if (fileBuffer.charAt(endIdx) === '{') openBraceCount++;else if (fileBuffer.charAt(endIdx) === '}') openBraceCount--;
-					endIdx++;
-				}
-				if (fileBuffer.charAt(endIdx + 1) === ',') {
-					endIdx++;
-				}
-
-				var resourceDefintion = fileBuffer.slice(startIdx, endIdx + 1);
-
-				var resolutionIdx = resourceDefintion.indexOf('resolution');
-				if (resolutionIdx >= 0) {
-					while (isNaN(parseInt(resourceDefintion.charAt(resolutionIdx)))) {
-						resolutionIdx++;
-					}resolution = parseInt(resourceDefintion.charAt(resolutionIdx));
-				} else {
-					resolution = 2;
-				}
-
-				if (options.rewriteTheme) {
-					var firstResource = fileBuffer.slice(0, resourceIdx);
-					var secondResource = fileBuffer.slice(endIdx + 1);
-					var rewrite = firstResource + secondResource;
-					fileBuffer = rewrite;
-				}
-
-				themeBuffers[foundPath] = fileBuffer;
 			}
 		}
+
+		if (foundValidPath) {
+			return parseResourceDef(foundPath, filePath, hasTactileSuffix ? TACTILE_SUFFIX : undefined);
+		} else {
+			logFn('Unable to resolve resource defintion for: ' + filePath, true);
+		}
 	}
-	return { resolution: resolution, resourceName: resourceName };
+	return { resolution: DEFAULT_RESOLUTION, resourceName: '' };
 }
 
 function _cropFile(filePath) {
@@ -634,7 +710,7 @@ function _cropFile(filePath) {
 	var inkscapeCmd = '';
 	var fullPath = _path2.default.resolve(filePath);
 	var plat = _os2.default.platform();
-	if (plat === 'darwin') inkscapeCmd = '/Applications/Inkscape.app/Contents/Resources/bin/inkscape';else if (plat === 'linux') inkscapeCmd = 'inkscape';else if (plat === 'win32') inkscapeCmd = 'C:/Progra~1/Inkscape/inkscape.exe';else console.log('Not sure what OS you are running. Let us know if you get this error.');
+	if (plat === 'darwin') inkscapeCmd = '/Applications/Inkscape.app/Contents/Resources/bin/inkscape';else if (plat === 'linux') inkscapeCmd = 'inkscape';else if (plat === 'win32') inkscapeCmd = 'C:/Progra~1/Inkscape/inkscape.exe';else logFn('Not sure what OS you are running. Let us know if you get this error.', true);
 
 	var cmdArgs = void 0;
 	if (inkscapeCmd) {
@@ -649,7 +725,7 @@ function _cropFile(filePath) {
 	if (inkscapeCmd && cmdArgs) {
 		_child_process2.default.spawnSync(inkscapeCmd, cmdArgs);
 		var exportProcess = '--export-plain-svg="' + fullPath + '"';
-		console.log('Crop image: ' + fullPath);
+		logFn('Crop image: ' + fullPath);
 		_child_process2.default.spawnSync(inkscapeCmd, [fullPath, exportProcess]);
 	}
 }
@@ -666,11 +742,12 @@ function __getSizeOfFile(filePath, resolution) {
 	var fileBuffer = _fs2.default.readFileSync(filePath, 'utf8');
 	// white spaces generate too many text elems, lets remove them before parsing to xmldom.
 	var svgDom = parser.parseFromString(fileBuffer.replace(/\s\s+/g, ' '));
+	logFn('Start SVG optimization');
 	return __optimizeSVG(svgDom, fullPath, {}).then(function (result) {
+		logFn('Complete SVG optimization');
 		fileBuffer = _fs2.default.readFileSync(filePath, 'utf8');
 		// white spaces generate too many text elems, lets remove them before parsing to xmldom.
 		svgDom = parser.parseFromString(fileBuffer.replace(/\s\s+/g, ' '));
-
 		// finding out the dimensions
 		var viewBoxAttr = svgDom.documentElement.getAttribute('viewBox');
 		if (!viewBoxAttr) viewBoxAttr = svgDom.documentElement.getAttribute('viewbox');
@@ -704,6 +781,8 @@ function __getSizeOfFile(filePath, resolution) {
 			viewBox.width = Number(svgDom.documentElement.getAttribute('width').replace('px', '')) || DEFAULT_WIDTH;
 			viewBox.height = Number(svgDom.documentElement.getAttribute('height').replace('px', '')) || DEFAULT_HEIGHT;
 		}
+
+		logFn('Parsed image size - w:' + viewBox.width + ' h:' + viewBox.height);
 
 		var fileData = {};
 		fileData.svgDOM = svgDom;
@@ -739,7 +818,7 @@ function generatePNGjs(svgPath, pngName, pngPath, svgs, themeJSON, options) {
 	// write file to that path
 	var prettyPrintLevel = 4;
 	var jsonString = JSON.stringify(themeFileData, null, prettyPrintLevel);
-	console.log('write js file to: ' + savePath);
+	logFn('Write js file to: ' + savePath);
 	_fs2.default.writeFileSync(savePath, "export default " + jsonString);
 }
 
@@ -762,7 +841,7 @@ async function generatePNG(svgSprtSheetPath, pngPath, options) {
 		height: height,
 		toPath: pngPath
 	}).then(function () {
-		console.log('PNG image has been saved from: ' + svgSprtSheetPath);
+		logFn('PNG image has been saved to: ' + pngPath);
 		_fs2.default.unlinkSync(svgSprtSheetPath);
 	});
 }
