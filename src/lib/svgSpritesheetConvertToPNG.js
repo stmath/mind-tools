@@ -119,7 +119,7 @@ function writeThemeImport (name, hasOutlineElements, relativeOutlinePath, option
 		let includeStyle = `\n\t${name}: ${name}Data,\n`;
 
 		if (hasOutlineElements) {
-			includeStyle += `\t${name}Outlines: {\n\t\turl: '${relativeOutlinePath}',\n\t\tmetadata: {\n\t\t\tisOutline: ${true}\n\t\t}\n\t},\n`
+			includeStyle += `\t${name}Outlines: {\n\t\turl: '/${relativeOutlinePath}',\n\t\tmetadata: {\n\t\t\tisOutline: ${true}\n\t\t}\n\t},\n`
 		}
 
 		readBuffer = readBuffer.slice(0, styleIdx) + includeStyle + readBuffer.slice(styleIdx+1);
