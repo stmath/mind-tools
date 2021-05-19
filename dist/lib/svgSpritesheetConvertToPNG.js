@@ -44,6 +44,8 @@ var _os2 = _interopRequireDefault(_os);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
+
 var ERROR_EXIT = 1;
 var SVG_SIZE = /<svg[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*>/i;
 var DEFAULT_RESOLUTION = 1;
@@ -68,7 +70,7 @@ async function convertSpritesheet(folderPath, name) {
 		// clean away any undefined properties in values;
 		for (var svgIter = 0; svgIter < values.length; svgIter++) {
 			if (values[svgIter] != undefined) {
-				svgs.push(values[svgIter]);
+				svgs.push.apply(svgs, _toConsumableArray(values[svgIter]));
 			}
 		}
 
@@ -107,7 +109,8 @@ async function convertSpritesheet(folderPath, name) {
 			for (var _iter = 0; _iter < parsedSVGs.length; _iter++) {
 				var svgData = svgs[parsedSVGs[_iter]];
 				var pathToRemove = _path2.default.resolve(svgData.url);
-				_fs2.default.unlinkSync(pathToRemove);
+				// validate file existence then remove
+				if (_fs2.default.existsSync(pathToRemove)) _fs2.default.unlinkSync(pathToRemove);
 			}
 		}
 
@@ -549,26 +552,32 @@ async function extractData(file, folderPath, options) {
 	// extract outline elements from this svg file, given the set of options 
 	var outlineData = openFileForOutlines(folderPath, file, undefined, options.outlineIds);
 	// extract expected resolution and resourceName from arena's theme definitions
-
-	var _extractThemeInfo = extractThemeInfo(filePath, options),
-	    resolution = _extractThemeInfo.resolution,
-	    resourceName = _extractThemeInfo.resourceName;
-
-	if (resourceName === '') {
+	var extractedData = extractThemeInfo(filePath, options);
+	if (!extractedData) {
 		logFn('Resource not found in theme: ' + filePath, true);
 		return;
 	}
 
+	// the first instance of the extracted data will define the resolution for the resource
+	// this may need to be reoncisdered to either, use the max resolution or create separate svg instances for each unique resolution
+	var resolution = extractedData[0].resolution;
+
 	// parse the file to determine the expected dimensions of the rasterized SVG
 	return __getSizeOfFile(filePath, resolution, options).then(function (res) {
-		var svgData = res;
-		svgData.name = resName;
-		svgData.url = filePath;
-		svgData.trimmedUrl = trimmedUrl;
-		svgData.path = filePath;
-		svgData.outline = outlineData;
-		svgData.resourceName = resourceName;
-		svgData.resolution = resolution;
+		var svgData = [];
+		for (var iter = 0; iter < extractedData.length; iter++) {
+			var svgDatum = Object.assign({}, res);
+			svgDatum.name = resName;
+			svgDatum.url = filePath;
+			svgDatum.trimmedUrl = trimmedUrl;
+			svgDatum.path = filePath;
+			svgDatum.outline = outlineData;
+
+			svgDatum.resourceName = extractedData[iter].resourceName;
+			svgDatum.resolution = extractedData[iter].resolution;
+
+			svgData.push(svgDatum);
+		}
 		return svgData;
 	});
 }
@@ -582,10 +591,11 @@ function runGrep(searchString, searchPath) {
 
 function parseResourceDef(pathToResource, resUrl) {
 	var styleSuffix = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : undefined;
+	var options = arguments[3];
 
 	var resolution = DEFAULT_RESOLUTION; // resolution defined by the resource
 	var resourceName = ''; // id for the resource found in the theme file
-
+	var extractedResources = [];
 	var fileBuffer = themeBuffers[pathToResource];
 	if (!fileBuffer) fileBuffer = _fs2.default.readFileSync(pathToResource, 'utf8');
 	var idx = fileBuffer.indexOf(resUrl);
@@ -646,22 +656,36 @@ function parseResourceDef(pathToResource, resUrl) {
 			logFn('Resolution not found. Default: ' + DEFAULT_RESOLUTION + ' will be used');
 		}
 
+		var searchIdx = 0;
+
 		if (styleSuffix !== undefined) {
 			resourceName = resourceName + styleSuffix;
 			logFn('Style suffix appended to resource: ' + resourceName + '. Theme will not be re-written');
 		} else {
 			var firstResource = fileBuffer.slice(0, resourceIdx);
 			var secondResource = fileBuffer.slice(endIdx + 1);
-			var rewrite = firstResource + secondResource;
-			fileBuffer = rewrite;
+			var commentedRes = '\n\t\t\t// replaced by spritesheet >>  ' + options.name + '_spritesheet\n\t\t\t/** ' + resourceDefintion + ' */';
+			var updatedThemeBuffer = void 0;
+			if (options.removeOldTheme) {
+				updatedThemeBuffer = firstResource + secondResource;
+			} else {
+				updatedThemeBuffer = firstResource + commentedRes + secondResource;
+				searchIdx = startIdx + commentedRes.length;
+			}
+			fileBuffer = updatedThemeBuffer;
 			themeBuffers[pathToResource] = fileBuffer;
 		}
 
 		logFn('resourceName: ' + resourceName + ' resolution: ' + resolution);
 
-		idx = fileBuffer.indexOf(resUrl);
+		extractedResources.push({
+			resourceName: resourceName,
+			resolution: resolution
+		});
+
+		idx = fileBuffer.indexOf(resUrl, searchIdx);
 	}
-	return { resolution: resolution, resourceName: resourceName };
+	return extractedResources;
 }
 
 function extractThemeInfo(filePath, options) {
@@ -670,7 +694,8 @@ function extractThemeInfo(filePath, options) {
 	var results = runGrep(filePath, srcPath);
 	if (results && results.stdout) {
 		var out = results.stdout.toString();
-		var foundPath = out.split(':\t')[0];
+		var splitResults = out.split(':\t'); // printed as location: 'fullstring'
+		var foundPath = splitResults[0];
 		var foundValidPath = foundPath && foundPath.length > 0;
 
 		if (!foundValidPath) {
@@ -688,12 +713,12 @@ function extractThemeInfo(filePath, options) {
 		}
 
 		if (foundValidPath) {
-			return parseResourceDef(foundPath, filePath, hasTactileSuffix ? TACTILE_SUFFIX : undefined);
+			return parseResourceDef(foundPath, filePath, hasTactileSuffix ? TACTILE_SUFFIX : undefined, options);
 		} else {
 			logFn('Unable to resolve resource defintion for: ' + filePath, true);
 		}
 	}
-	return { resolution: DEFAULT_RESOLUTION, resourceName: '' };
+	return;
 }
 
 function _cropFile(filePath) {

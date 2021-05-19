@@ -32,7 +32,7 @@ export async function convertSpritesheet (folderPath, name, options = {}) {
 		// clean away any undefined properties in values;
 		for (let svgIter = 0; svgIter < values.length; svgIter++) {
 			if (values[svgIter] != undefined) {
-				svgs.push(values[svgIter]);
+				svgs.push(...values[svgIter]);
 			}
 		}
 
@@ -68,7 +68,8 @@ export async function convertSpritesheet (folderPath, name, options = {}) {
 			for (let iter = 0; iter < parsedSVGs.length; iter++) {
 				let svgData = svgs[parsedSVGs[iter]];
 				let pathToRemove = path.resolve(svgData.url);
-				fs.unlinkSync(pathToRemove);
+				// validate file existence then remove
+				if (fs.existsSync(pathToRemove)) fs.unlinkSync(pathToRemove);
 			}					
 		}
 
@@ -505,22 +506,32 @@ async function extractData (file, folderPath, options) {
 	// extract outline elements from this svg file, given the set of options 
 	let outlineData = openFileForOutlines(folderPath, file, undefined, options.outlineIds);
 	// extract expected resolution and resourceName from arena's theme definitions
-	let {resolution, resourceName} = extractThemeInfo(filePath, options);
-	if (resourceName === '') {
+	let extractedData = extractThemeInfo(filePath, options);
+	if (!extractedData) {
 		logFn(`Resource not found in theme: ${filePath}`, true);
 		return;
 	}
 	
+	// the first instance of the extracted data will define the resolution for the resource
+	// this may need to be reoncisdered to either, use the max resolution or create separate svg instances for each unique resolution
+	let resolution = extractedData[0].resolution;
+
 	// parse the file to determine the expected dimensions of the rasterized SVG
 	return __getSizeOfFile(filePath, resolution, options).then((res) => {
-		let svgData = res;
-		svgData.name = resName;
-		svgData.url = filePath;
-		svgData.trimmedUrl = trimmedUrl;
-		svgData.path = filePath;
-		svgData.outline = outlineData;
-		svgData.resourceName = resourceName;
-		svgData.resolution = resolution;
+		let svgData = [];
+		for (let iter = 0; iter < extractedData.length; iter++) {
+			let svgDatum = Object.assign({}, res);
+			svgDatum.name = resName;
+			svgDatum.url = filePath;
+			svgDatum.trimmedUrl = trimmedUrl;
+			svgDatum.path = filePath;
+			svgDatum.outline = outlineData;
+
+			svgDatum.resourceName = extractedData[iter].resourceName;
+			svgDatum.resolution = extractedData[iter].resolution;
+
+			svgData.push(svgDatum);
+		}
 		return svgData;
 	});
 }
@@ -532,10 +543,10 @@ function runGrep (searchString, searchPath) {
 	return spawn(command, args);
 }
 
-function parseResourceDef (pathToResource, resUrl, styleSuffix = undefined) {
+function parseResourceDef (pathToResource, resUrl, styleSuffix = undefined, options) {
 	let resolution = DEFAULT_RESOLUTION;		// resolution defined by the resource
 	let resourceName = '';						// id for the resource found in the theme file
-
+	let extractedResources = [];
 	let fileBuffer = themeBuffers[pathToResource];
 	if (!fileBuffer) fileBuffer = fs.readFileSync(pathToResource, 'utf8');
 	let idx = fileBuffer.indexOf(resUrl);
@@ -597,22 +608,39 @@ function parseResourceDef (pathToResource, resUrl, styleSuffix = undefined) {
 			logFn(`Resolution not found. Default: ${DEFAULT_RESOLUTION} will be used`);
 		}
 
+		let searchIdx = 0;
+
 		if (styleSuffix !== undefined) {
 			resourceName = resourceName + styleSuffix;
 			logFn(`Style suffix appended to resource: ${resourceName}. Theme will not be re-written`);
 		} else {
 			let firstResource = fileBuffer.slice(0, resourceIdx);
 			let secondResource = fileBuffer.slice(endIdx + 1);
-			let rewrite = firstResource + secondResource;
-			fileBuffer = rewrite;
+			let commentedRes = `
+			// replaced by spritesheet >>  ${options.name}_spritesheet
+			/** ${resourceDefintion} */`;
+			let updatedThemeBuffer;
+			if (options.removeOldTheme) {
+				updatedThemeBuffer = firstResource + secondResource;
+			}
+			else {
+				updatedThemeBuffer = firstResource + commentedRes + secondResource;
+				searchIdx = startIdx + commentedRes.length;
+			}
+			fileBuffer = updatedThemeBuffer;
 			themeBuffers[pathToResource] = fileBuffer;
 		}
 		
 		logFn(`resourceName: ${resourceName} resolution: ${resolution}`);
 
-		idx = fileBuffer.indexOf(resUrl);
+		extractedResources.push({
+			resourceName,
+			resolution
+		})
+
+		idx = fileBuffer.indexOf(resUrl, searchIdx);
 	}
-	return {resolution, resourceName};
+	return extractedResources;
 }
 
 function extractThemeInfo (filePath, options) {
@@ -621,7 +649,8 @@ function extractThemeInfo (filePath, options) {
 	let results = runGrep(filePath, srcPath);
 	if (results && results.stdout) {
 		let out = results.stdout.toString();
-		let foundPath = out.split(':\t')[0];
+		let splitResults = out.split(':\t') // printed as location: 'fullstring'
+		let foundPath = splitResults[0];
 		let foundValidPath = foundPath && foundPath.length > 0;
 
 		if (!foundValidPath) {
@@ -639,12 +668,12 @@ function extractThemeInfo (filePath, options) {
 		}
 
 		if (foundValidPath) {
-			return parseResourceDef(foundPath, filePath, hasTactileSuffix ? TACTILE_SUFFIX : undefined);
+			return parseResourceDef(foundPath, filePath, hasTactileSuffix ? TACTILE_SUFFIX : undefined, options);
 		} else {
 			logFn(`Unable to resolve resource defintion for: ${filePath}`, true);
 		}
 	}
-	return {resolution: DEFAULT_RESOLUTION, resourceName: ''};
+	return;
 }
 
 function _cropFile (filePath, cropId = 'outline', ignoreCropDraw = false) {
