@@ -32,7 +32,11 @@ export async function convertSpritesheet (folderPath, name, options = {}) {
 		// clean away any undefined properties in values;
 		for (let svgIter = 0; svgIter < values.length; svgIter++) {
 			if (values[svgIter] != undefined) {
-				svgs.push(...values[svgIter]);
+				// we only want the first resource to be added to svg spritesheet
+				let svgInstance = values[svgIter].shift();
+				svgs.push(svgInstance);
+				// other resources will need to be written in but should not be part of the spritesheet
+				svgInstance.duplicateDefs = values[svgIter];
 			}
 		}
 
@@ -369,6 +373,19 @@ function __generateJSON (svgs) {
 			themeObj[file.name].metadata.defer = true;
 			themeObj[file.name].defer = true;
 		}
+
+		if (file.duplicateDefs) {
+			for (let iter = 0; iter < file.duplicateDefs.length; iter++) {
+				let dupDef = file.duplicateDefs[iter];
+				logFn(`Adding duplicate resource definition: ${dupDef.resourceName}`);
+				let key = dupDef.resourceName;
+				themeObj[key] = Object.assign({}, themeObj[file.resourceName]);
+				themeObj[key].name = dupDef.name;
+				themeObj[key].resourceName = dupDef.resourceName;
+				themeObj[key].metadata.resolution = dupDef.resolution;
+			}
+		}
+
 	});
 
 	return themeObj;

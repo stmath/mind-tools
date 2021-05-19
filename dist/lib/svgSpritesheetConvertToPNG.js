@@ -44,8 +44,6 @@ var _os2 = _interopRequireDefault(_os);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
-
 var ERROR_EXIT = 1;
 var SVG_SIZE = /<svg[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*(?:\s(width|height)=('|")(\d*(?:\.\d+)?)(?:px)?('|"))[^>]*>/i;
 var DEFAULT_RESOLUTION = 1;
@@ -70,7 +68,11 @@ async function convertSpritesheet(folderPath, name) {
 		// clean away any undefined properties in values;
 		for (var svgIter = 0; svgIter < values.length; svgIter++) {
 			if (values[svgIter] != undefined) {
-				svgs.push.apply(svgs, _toConsumableArray(values[svgIter]));
+				// we only want the first resource to be added to svg spritesheet
+				var svgInstance = values[svgIter].shift();
+				svgs.push(svgInstance);
+				// other resources will need to be written in but should not be part of the spritesheet
+				svgInstance.duplicateDefs = values[svgIter];
 			}
 		}
 
@@ -415,6 +417,19 @@ function __generateJSON(svgs) {
 		if (shouldDefer) {
 			themeObj[file.name].metadata.defer = true;
 			themeObj[file.name].defer = true;
+		}
+
+		if (file.duplicateDefs) {
+			for (var iter = 0; iter < file.duplicateDefs.length; iter++) {
+				var dupDef = file.duplicateDefs[iter];
+				logFn('dup def: ' + dupDef + '\n' + dupDef.resourceName + '\n' + dupDef.name);
+				logFn('Adding duplicate resource definition: ' + dupDef.resourceName);
+				var key = dupDef.resourceName;
+				themeObj[key] = Object.assign({}, themeObj[file.resourceName]);
+				themeObj[key].name = dupDef.name;
+				themeObj[key].resourceName = dupDef.resourceName;
+				themeObj[key].metadata.resolution = dupDef.resolution;
+			}
 		}
 	});
 
