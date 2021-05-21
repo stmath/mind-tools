@@ -422,7 +422,6 @@ function __generateJSON(svgs) {
 		if (file.duplicateDefs) {
 			for (var iter = 0; iter < file.duplicateDefs.length; iter++) {
 				var dupDef = file.duplicateDefs[iter];
-				logFn('dup def: ' + dupDef + '\n' + dupDef.resourceName + '\n' + dupDef.name);
 				logFn('Adding duplicate resource definition: ' + dupDef.resourceName);
 				var key = dupDef.resourceName;
 				themeObj[key] = Object.assign({}, themeObj[file.resourceName]);
@@ -679,7 +678,7 @@ function parseResourceDef(pathToResource, resUrl) {
 		} else {
 			var firstResource = fileBuffer.slice(0, resourceIdx);
 			var secondResource = fileBuffer.slice(endIdx + 1);
-			var commentedRes = '\n\t\t\t// replaced by spritesheet >>  ' + options.name + '_spritesheet\n\t\t\t/** ' + resourceDefintion + ' */';
+			var commentedRes = '\n\t\t\t// replaced by spritesheet >>  ' + options.name + '_spritesheet\n\t\t\t/** "' + resourceName + '": ' + resourceDefintion + ' */';
 			var updatedThemeBuffer = void 0;
 			if (options.removeOldTheme) {
 				updatedThemeBuffer = firstResource + secondResource;

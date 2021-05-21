@@ -635,7 +635,7 @@ function parseResourceDef (pathToResource, resUrl, styleSuffix = undefined, opti
 			let secondResource = fileBuffer.slice(endIdx + 1);
 			let commentedRes = `
 			// replaced by spritesheet >>  ${options.name}_spritesheet
-			/** ${resourceDefintion} */`;
+			/** "${resourceName}": ${resourceDefintion} */`;
 			let updatedThemeBuffer;
 			if (options.removeOldTheme) {
 				updatedThemeBuffer = firstResource + secondResource;
