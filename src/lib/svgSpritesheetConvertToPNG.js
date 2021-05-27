@@ -429,7 +429,7 @@ function __generateSVGSpritesheet (files, options, outSvgName) {
 
 			// store the <use> tag. This will allow to translate each svg within the spritesheet.
 		// xlink is needed for safari to support <use> tag's href attribute. xlink needs to be enabled in <svg> tag
-		let useStr = `<use xlink:href="#${symbolId}" transform="scale(${fileData.resolution} ${fileData.resolution}) translate(${fileData.x}, ${fileData.y})" />`;
+		let useStr = `<use xlink:href="#${symbolId}" transform="translate(${fileData.x}, ${fileData.y}) scale(${fileData.resolution} ${fileData.resolution})" />`;
 		storedUseStrs.push(useStr);
 		
 	});
