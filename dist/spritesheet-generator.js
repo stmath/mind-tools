@@ -26,8 +26,14 @@ var optionDefinitions = [{ name: 'gameName', type: String }, { name: 'folder', a
 
 var options = (0, _commandLineArgs2.default)(optionDefinitions);
 if (options.outlineIds) {
-	if (options.outlineIds.indexOf(',')) options.outlineIds.split(',');
-	options.outlineIds = [options.outlineIds];
+	if (options.outlineIds.indexOf(',')) {
+		options.outlineIds = options.outlineIds.split(',');
+	} else {
+		options.outlineIds = [options.outlineIds];
+	}
+	for (var iter = 0; iter < options.outlineIds.length; iter++) {
+		console.log(options.outlineIds[iter]);
+	}
 }
 
 // if not provided define options based on expected naming conventions

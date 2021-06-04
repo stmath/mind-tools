@@ -24,8 +24,14 @@ const optionDefinitions = [
 
 const options = commandLineArgs(optionDefinitions);
 if (options.outlineIds) {
-	if (options.outlineIds.indexOf(',')) options.outlineIds.split(',');
-	options.outlineIds = [options.outlineIds];	
+	if (options.outlineIds.indexOf(',')) {
+		options.outlineIds = options.outlineIds.split(',');
+	} else {
+		options.outlineIds = [options.outlineIds];
+	}
+	for (let iter = 0; iter < options.outlineIds.length; iter++) {
+		console.log(options.outlineIds[iter]);
+	}
 }
 
 // if not provided define options based on expected naming conventions
