@@ -151,7 +151,7 @@ function extractOutlineFromString (fileStr, id='outline') {
         let doubleQuote = /"/gi;
         let newline = /(\r\n|\n|\r)/gm
         extractedPath = extractedPath.replace(doubleQuote, "'");
-        extractedPath = extractedPath.replace(newline, "");
+        extractedPath = extractedPath.replace(newline, " ");
         return extractedPath;
     }
     return null;
