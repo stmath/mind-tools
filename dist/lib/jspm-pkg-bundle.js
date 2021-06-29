@@ -69,6 +69,7 @@ function bundlePkg(packageName, tag, _ref) {
 
 		var spawn = _child_process2.default.spawnSync;
 		var command = _os2.default.platform() === 'win32' ? 'jspm.cmd' : 'jspm';
+		if (packageName === 'mind-sdk') skipInstall = true; // force jspm install on sdk builds
 		if (!skipInstall) {
 			log('Installing ' + packageName);
 			status = spawn(command, ['install', ns + ':' + packageName + '@' + tag, '-y'], { stdio: 'inherit' });
