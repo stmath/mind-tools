@@ -41,7 +41,6 @@ export function bundlePkg (packageName, tag, {noMinify, sourceMap, skipInstall, 
 
 		const spawn = child_process.spawnSync;
 		const command = (os.platform() === 'win32') ? 'jspm.cmd' : 'jspm';
-		if (packageName === 'mind-sdk') skipInstall = true; // force jspm install on sdk builds
 		if (!skipInstall) {
 			log(`Installing ${packageName}`);
 			status = spawn(command, ['install', `${ns}:${packageName}@${tag}`, '-y'], {stdio: 'inherit'});
