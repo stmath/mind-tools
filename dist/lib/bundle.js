@@ -647,5 +647,5 @@ var logFn = function logFn(_) {};
 
 var DEFAULTS = {
     s3bucket: 'mri-game-conversion',
-    s3folder: '/Content_HTML5'
+    s3folder: '/raft'
 };
